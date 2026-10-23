@@ -56,10 +56,9 @@ export default function LoginPanel({ next, error, provider, message }: { next?: 
 
   return (
     <div className="auth-card">
-      <span className="eyebrow">Login</span>
       <h1 className="auth-title">로그인 / 회원가입</h1>
       <p className="sub" style={{ marginBottom: 24 }}>
-        처음이시면 로그인과 동시에 가입이 시작됩니다. 사건 접수·결제와 진행 조회에 필요합니다.
+        처음 오셨다면 로그인하면서 바로 가입됩니다. 사건을 접수하고 진행 상황을 보려면 로그인이 필요합니다.
       </p>
 
       {err && <p className="form-error" role="alert">{err}</p>}

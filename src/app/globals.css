@@ -1081,3 +1081,28 @@ a.card:hover .card-more { color: var(--tag); gap: 6px; }
 .text-link { display: inline-flex; align-items: center; gap: 4px; margin-top: 22px; font-weight: 700; font-size: .9rem; color: var(--ink); border-bottom: 1.5px solid var(--ink); padding-bottom: 2px; transition: color .2s, border-color .2s, gap .2s; }
 .text-link:hover { color: var(--tag); border-color: var(--tag); gap: 8px; }
 #why { scroll-margin-top: 70px; }
+
+/* 용어 풀이(Term) — 점선 밑줄, 올리거나 누르면 아래에 말풍선. hover 는 마우스 기기에서만(휴대폰은 누르기) */
+.term { position: relative; display: inline; }
+.term-btn {
+  font: inherit; color: inherit; letter-spacing: inherit; background: none; border: 0; padding: 0; cursor: help;
+  text-decoration: underline dotted; text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+  text-underline-offset: 3px; text-decoration-thickness: 1.5px;
+}
+.term-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 3px; }
+.term-pop {
+  position: absolute; z-index: 40; left: 50%; top: calc(100% + 8px);
+  width: max-content; max-width: min(300px, calc(100vw - 24px));
+  transform: translate(calc(-50% + var(--shift, 0px)), 4px);
+  padding: 11px 14px; border-radius: 10px; background: var(--night); color: #fff;
+  font-size: .82rem; font-weight: 500; line-height: 1.6; letter-spacing: -0.005em; text-align: left; white-space: normal;
+  box-shadow: var(--shadow-lg); opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity .16s ease, transform .16s ease, visibility .16s;
+}
+.term.open .term-pop, .term-btn:focus-visible + .term-pop { opacity: 1; visibility: visible; transform: translate(calc(-50% + var(--shift, 0px)), 0); }
+@media (hover: hover) { .term:hover .term-pop { opacity: 1; visibility: visible; transform: translate(calc(-50% + var(--shift, 0px)), 0); } }
+/* 페이지 상단은 overflow: hidden 이라 아래로 열면 잘린다 — 위로 연다 */
+.page-hero .term-pop { top: auto; bottom: calc(100% + 8px); }
+/* 꺼진 선택 단계는 줄 전체가 반투명이라 말풍선도 비친다 — 열려 있는 동안은 불투명하게, 아래 줄보다 위로 */
+.jstep:has(.term.open), .jstep:has(.term-btn:focus-visible) { opacity: 1 !important; position: relative; z-index: 5; }
+@media (hover: hover) { .jstep:has(.term:hover) { opacity: 1 !important; position: relative; z-index: 5; } }

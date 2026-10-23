@@ -20,4 +20,4 @@ export const FIRM = {
   hours: '평일 09:00–18:00 (온라인 접수는 상시)',
 } as const;
 
-export const TAGLINE = '가장 싼 곳이 아니라, 기준이 되는 곳.';
+export const TAGLINE = '수임료를 먼저 보여드리는 법률서비스';

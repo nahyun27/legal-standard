@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { glossed } from '@/components/Glossed';
 import type { Journey } from '@/data/types';
 import { getService, serviceTitle } from '@/data/services';
 import { priceLabel, priceLower, priceUpper } from '@/lib/format';
@@ -36,7 +37,7 @@ export default function JourneyTimeline({ journey }: { journey: Journey }) {
           <div key={s.serviceSlug} className={`jstep${optional ? ' optional' : ''}${on[i] ? ' on' : ''}`} style={{ '--i': i } as React.CSSProperties}>
             <span className={`n${optional ? ' opt' : ''}`}>{i + 1}</span>
             <span className="t">
-              {optional && s.trigger && <span className="trigger">{s.trigger}</span>}
+              {optional && s.trigger && <span className="trigger">{glossed(s.trigger)}</span>}
               <Link href={`/services/${s.service.slug}`}>{serviceTitle(s.service)}</Link>
               <small>{s.service.turnaround}</small>
             </span>

@@ -105,7 +105,7 @@ export default function CaseView({ id, justPaid }: { id: number; justPaid: boole
       )}
       {c.quote_note && c.status === 'pending_payment' && (
         <div className="banner banner-good" style={{ display: 'block' }}>
-          <b>견적 안내</b> — {c.quote_note}<br />결제 금액 {won(c.total)} (부가세 포함). 결제하시면 담당 변호사가 수임 절차를 진행합니다.
+          <b>견적 안내</b>: {c.quote_note}<br />결제 금액 {won(c.total)} (부가세 포함). 결제하시면 담당 변호사가 수임 절차를 진행합니다.
         </div>
       )}
       {c.status === 'rejected' && (

@@ -307,7 +307,7 @@ export default function IntakeForm({ service, parentId }: { service: Service; pa
     </div>
     <aside className="price-panel intake-summary">
       <div className="detail-block">
-        <span className="eyebrow" style={{ marginBottom: 6 }}>Summary</span>
+        <span className="eyebrow" style={{ marginBottom: 6 }}>입력 내용 확인</span>
         <h3>{serviceTitle(service)}</h3>
         <dl className="sum-list">
           <div><dt>의뢰인</dt><dd>{d.clientName || '—'}</dd></div>

@@ -65,7 +65,7 @@ export default function MyAccount() {
 
   return (
     <>
-    <PageHero crumbs={[{ label: '내 사건' }]} eyebrow="My cases" title={`${user.name}님의 사건`} lead="접수한 사건의 진행 상황과 완성된 서면을 이곳에서 확인합니다." />
+    <PageHero crumbs={[{ label: '내 사건' }]} title={`${user.name}님의 사건`} lead="접수한 사건의 진행 상황과 완성된 서면을 여기서 보실 수 있습니다." />
     <div className="container section">
       <div className="detail">
         <div>

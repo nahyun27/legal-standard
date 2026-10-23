@@ -13,7 +13,7 @@ export const metadata = pageMeta({
 export default function FaqPage() {
   return (
     <>
-      <PageHero crumbs={[{ label: '자주 묻는 질문' }]} eyebrow="FAQ" title="자주 묻는 질문" lead="가격·진행·서면 작성 방식·개인정보에 관한 질문을 모았습니다." />
+      <PageHero crumbs={[{ label: '자주 묻는 질문' }]} title="자주 묻는 질문" lead="가격, 진행 방식, 서면을 누가 쓰는지, 개인정보에 관해 많이 받는 질문입니다." />
       <section className="band" style={{ paddingTop: 44 }}>
         <div className="container" style={{ maxWidth: 860 }}>
           <FaqBrowser />

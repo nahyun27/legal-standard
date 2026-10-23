@@ -53,7 +53,6 @@ export default function SignupForm({ next }: { next?: string }) {
 
   return (
     <form className="auth-card" onSubmit={submit} noValidate>
-      <span className="eyebrow">Sign up</span>
       <h1 className="auth-title">가입을 마무리해 주세요</h1>
       <p className="sub" style={{ marginBottom: 24 }}>
         사건을 맡기실 때 수임계약과 이해충돌 확인에 실명과 연락처가 필요합니다.

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
+import { glossed } from '@/components/Glossed';
 import { FAQ } from '@/data/faq';
 
 // FAQ 분류 — 질문 문구로 나눈다(데이터에 분류를 넣지 않고 한 곳에서 관리)
@@ -37,7 +38,7 @@ export default function FaqBrowser() {
           : items.map((f) => (
             <details key={f.q} className="faq">
               <summary>{f.q}</summary>
-              <p>{f.a}</p>
+              <p>{glossed(f.a)}</p>
             </details>
           ))}
       </div>

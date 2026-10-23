@@ -11,7 +11,7 @@ export interface Crumb { label: string; href?: string }
  * 연한 종이 질감 배경에 진입 애니메이션. 모든 공개 서브페이지가 이 틀을 쓴다.
  */
 export function PageHero({ eyebrow, title, lead, crumbs, aside, children }: {
-  eyebrow?: string; title: string; lead?: string; crumbs?: Crumb[]; aside?: React.ReactNode; children?: React.ReactNode;
+  eyebrow?: string; title: string; lead?: React.ReactNode; crumbs?: Crumb[]; aside?: React.ReactNode; children?: React.ReactNode;
 }) {
   return (
     <section className="page-hero">

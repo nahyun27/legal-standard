@@ -2,7 +2,7 @@ import { Check } from 'lucide-react';
 import { TrustSeal } from '@/components/ui';
 import { FIRM } from '@/lib/site';
 
-const POINTS = ['상담·수임·서면 확정은 모두 법인 소속 변호사가', '다음 단계까지 가격을 미리 공개하는 정찰제', '수임이 확정되지 않으면 결제금액 전액 반환'];
+const POINTS = ['상담, 수임, 서면 확정은 법인 소속 변호사가 합니다', '다음 단계의 가격도 미리 공개합니다', '수임하지 않게 되면 결제금액을 전부 돌려드립니다'];
 
 /** 로그인·가입 화면 틀 — 왼쪽 신뢰 패널, 오른쪽 폼. 모바일에서는 폼만 보인다. */
 export default function AuthLayout({ children, step }: { children: React.ReactNode; step?: 1 | 2 | 3 }) {

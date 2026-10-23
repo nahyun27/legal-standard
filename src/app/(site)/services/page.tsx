@@ -10,21 +10,21 @@ import { pageMeta } from '@/lib/seo';
 
 export const metadata = pageMeta({
   title: '서비스·가격',
-  description: '내용증명·지급명령·고소장·소송 전부대리까지 전 상품의 정찰가와 표준 업무범위.',
+  description: '내용증명, 지급명령, 고소장, 소송대리까지 모든 상품의 가격과 업무범위.',
   path: '/services',
 });
 
 const PRINCIPLES = [
-  { icon: Receipt, title: '흥정 없는 정찰가', body: '표시된 가격이 수임료의 전부입니다. 부가세와 인지대·송달료 등 실비는 결제 전 화면에서 항목별로 보여드립니다.' },
-  { icon: Route, title: '다음 단계 가격까지 공개', body: '상대방이 이의하거나 불송치 결정이 나와도, 그다음 절차의 가격과 업무범위를 미리 알 수 있습니다.' },
-  { icon: BadgeCheck, title: '수임 불성립 시 전액 반환', body: '담당 변호사가 표준 서비스로 진행하기 어렵다고 판단하면 결제금액을 전액 돌려드립니다.' },
+  { icon: Receipt, title: '정해진 가격', body: '표시된 가격이 수임료의 전부입니다. 부가세와 인지대·송달료 같은 실비는 결제 전에 항목별로 보여 드립니다.' },
+  { icon: Route, title: '다음 단계 가격도 공개', body: '상대방이 이의하거나 불송치 결정이 나왔을 때 이어지는 절차의 가격과 업무범위도 미리 볼 수 있습니다.' },
+  { icon: BadgeCheck, title: '수임하지 않으면 전액 환불', body: '담당 변호사가 검토한 뒤 정해진 서비스로 진행하기 어렵다고 판단하면 결제금액을 전부 돌려드립니다.' },
 ];
 
 const TIERS: { tier: Tier; desc: string }[] = [
-  { tier: 'T1', desc: '정형화된 서면을 정찰가로. 변호사 검토·서명 후 제출·발송까지.' },
-  { tier: 'T1R', desc: '직접 준비한 초안을 제출 전에 변호사가 검토·보완·서명.' },
-  { tier: 'T2', desc: '업무범위를 사전 확정한 소송·수사 단계 대리. 성공보수율 사전 공개.' },
-  { tier: 'T3', desc: '비정형·고액 사건은 법무법인 본체의 개별 상담으로.' },
+  { tier: 'T1', desc: '변호사가 검토하고 서명한 서면을 제출하거나 발송해 드립니다.' },
+  { tier: 'T1R', desc: '직접 쓰신 초안을 내기 전에 변호사가 검토해 고치고 서명합니다.' },
+  { tier: 'T2', desc: '업무범위를 미리 정해 두고 소송이나 수사 단계를 대리합니다. 성공보수율도 미리 공개합니다.' },
+  { tier: 'T3', desc: '복잡하거나 금액이 큰 사건은 법무법인 본체 변호사가 개별 상담합니다.' },
 ];
 
 export default function ServicesPage() {
@@ -33,9 +33,8 @@ export default function ServicesPage() {
     <>
       <PageHero
         crumbs={[{ label: '서비스·가격' }]}
-        eyebrow="Pricing"
         title="서비스·가격"
-        lead="흥정 없는 정찰가입니다. 상황을 고르면 필요한 서비스와 다음 단계의 비용까지 한 번에 볼 수 있습니다."
+        lead="가격은 상품마다 정해져 있고 따로 협의하지 않습니다. 지금 상황을 고르면 맞는 서비스와 다음 단계 가격이 함께 나옵니다."
         aside={
           <StatChips items={[
             { label: '지금 접수 가능', value: `${open}개 서비스` },
@@ -60,8 +59,7 @@ export default function ServicesPage() {
         <div className="container">
           <div className="section-head">
             <div>
-              <span className="eyebrow">Price principles</span>
-              <h2>가격은 이렇게 정합니다</h2>
+              <h2>가격 원칙</h2>
             </div>
           </div>
           <div className="grid grid-3">
