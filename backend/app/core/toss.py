@@ -23,3 +23,16 @@ def confirm(payment_key: str, order_id: str, amount: int) -> dict:
 
 def cancel(payment_key: str, reason: str) -> dict:
     return _post(f"/v1/payments/{payment_key}/cancel", {"cancelReason": reason[:200]})
+
+
+def get_by_order(order_id: str) -> dict | None:
+    """orderId 로 결제 조회(웹훅·대조용). 결제가 없으면 None."""
+    try:
+        res = httpx.get(f"{settings.TOSS_API_BASE}/v1/payments/orders/{order_id}", auth=(settings.TOSS_SECRET_KEY or "", ""), timeout=15.0)
+    except httpx.HTTPError as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="결제사와 통신하지 못했습니다.") from exc
+    if res.status_code == 404:
+        return None
+    if res.status_code != 200:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="결제 조회에 실패했습니다.")
+    return res.json()

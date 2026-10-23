@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Download, FileText, Paperclip, ShieldCheck } from 'lucide-react';
 import { useStaff } from '@/components/admin/AdminShell';
-import { ACTION_LABEL, AdminHead, StatusPill, promptReason } from '@/components/admin/ui';
+import { useReason } from '@/components/admin/ReasonDialog';
+import { ACTION_LABEL, AdminHead, StatusPill } from '@/components/admin/ui';
 import { api, fileUrl, fmtDate, fmtSize, upload, type CostLine } from '@/lib/api';
 import { won } from '@/lib/format';
 
@@ -19,18 +20,32 @@ interface Detail {
   delivered_at: string | null; due_at: string | null; overdue: boolean;
   files: { id: number; kind: string; filename: string; size: number; created_at: string; sha256: string }[];
   payments: { id: number; order_id: string; amount: number; status: string; method: string | null; simulated: boolean; approved_at: string | null; canceled_at: string | null }[];
-  conflicts: { kind: string; case_id?: number; case_no?: string; user_id?: number; name: string }[];
+  conflicts: { kind: string; case_id?: number; case_no?: string; user_id?: number; name: string; note?: string }[];
+  consents: { version: string; agreed_at: string; items: Record<string, string> } | null;
+  quote_note: string | null; review_seconds: number | null; is_quote: boolean;
+  parent: { id: number; case_no: string; service_name: string } | null;
+  children: { id: number; case_no: string; service_name: string; status_label: string }[];
+  notifications: { id: number; event: string; channel: string; to: string | null; status: string; error: string | null; created_at: string }[];
   logs: { id: number; action: string; actor_name: string | null; reason: string | null; detail: Record<string, unknown> | null; created_at: string }[];
 }
 
 const PAY_STATUS: Record<string, string> = { ready: '결제 시도', done: '결제 완료', canceled: '환불', failed: '실패' };
+const NOTIFY_EVENT: Record<string, string> = { paid: '결제 완료', accepted: '수임 확정', rejected: '불성립·환불', delivered: '발송 완료', reminder: '결제 대기 안내', quoted: '견적 안내' };
+const NOTIFY_STATUS: Record<string, string> = { sent: '발송', skipped: '미발송(채널 없음)', failed: '실패' };
+
+interface Citation { kind: string; ref: string; status: 'found' | 'not_found' | 'unknown'; message: string }
 
 export default function AdminCaseDetail({ id }: { id: number }) {
   const staff = useStaff();
   const [c, setC] = useState<Detail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [lawyers, setLawyers] = useState<{ id: number; name: string; open_cases: number }[]>([]);
+  const [lawyers, setLawyers] = useState<{ id: number; name: string; open_cases: number; limit: number }[]>([]);
+  const [quoteFee, setQuoteFee] = useState('');
+  const [quoteNote, setQuoteNote] = useState('');
+  const [citeText, setCiteText] = useState('');
+  const [cites, setCites] = useState<{ items: Citation[]; api_configured: boolean } | null>(null);
+  const ask = useReason();
   const [lawyerId, setLawyerId] = useState<number | ''>('');
   const [conflictOk, setConflictOk] = useState(false);
   const [checked, setChecked] = useState<string[]>([]);
@@ -105,18 +120,37 @@ export default function AdminCaseDetail({ id }: { id: number }) {
                     </ul>
                   </div>
                 ) : <p className="sub" style={{ marginBottom: 12 }}><ShieldCheck size={15} style={{ verticalAlign: -3 }} /> 자동 대조에서 이해충돌 후보가 없습니다. (법인 기존 사건 목록과의 대조는 별도로 확인하세요)</p>}
-                {staff.is_lawyer ? (
+                {c.is_quote && !c.paid_at ? (
+                  staff.is_lawyer ? (
+                    <div className="quote-form">
+                      <p className="sub" style={{ marginBottom: 10 }}>개별 견적 사건입니다. 내용을 검토하고 견적을 보내면 고객이 결제한 뒤 수임 절차로 넘어옵니다.</p>
+                      <div className="field">
+                        <label htmlFor="qf">수임료(부가세 별도)</label>
+                        <input id="qf" inputMode="numeric" value={quoteFee} placeholder="예: 1,500,000"
+                          onChange={(e) => { const v = e.target.value.replace(/\D/g, ''); setQuoteFee(v ? Number(v).toLocaleString('ko-KR') : ''); }} />
+                      </div>
+                      <div className="field">
+                        <label htmlFor="qn">고객에게 보일 견적 안내</label>
+                        <textarea id="qn" value={quoteNote} onChange={(e) => setQuoteNote(e.target.value)} placeholder="업무범위·포함 절차·예상 기간 등" style={{ minHeight: 90 }} />
+                      </div>
+                      <div className="action-row">
+                        <button className="btn btn-primary" disabled={busy || !quoteFee || quoteNote.trim().length < 2} onClick={() => act('quote', { fee: Number(quoteFee.replace(/\D/g, '')), note: quoteNote })}>견적 보내기</button>
+                        <button className="btn btn-ghost" disabled={busy} onClick={async () => { const r = await ask({ title: '수임 불성립', description: '고객에게 사유가 보입니다.', danger: true, confirmLabel: '불성립 처리' }); if (r) act('reject', { reason: r }); }}>진행 불가 안내</button>
+                      </div>
+                    </div>
+                  ) : lawyerOnly
+                ) : staff.is_lawyer ? (
                   <>
                     <div className="field">
                       <label>담당 변호사</label>
                       <select value={lawyerId} onChange={(e) => setLawyerId(Number(e.target.value))}>
-                        {lawyers.map((l) => <option key={l.id} value={l.id}>{l.name} (진행 {l.open_cases}건)</option>)}
+                        {lawyers.map((l) => <option key={l.id} value={l.id} disabled={l.open_cases >= l.limit}>{l.name} (진행 {l.open_cases}/{l.limit}건{l.open_cases >= l.limit ? ' · 한도 도달' : ''})</option>)}
                       </select>
                     </div>
                     <label className="consent"><input type="checkbox" checked={conflictOk} onChange={(e) => setConflictOk(e.target.checked)} /> 이해충돌이 없음을 확인했습니다</label>
                     <div className="action-row">
                       <button className="btn btn-primary" disabled={busy || !conflictOk || !lawyerId} onClick={() => act('accept', { lawyer_id: lawyerId, conflict_checked: true })}>수임 확정</button>
-                      <button className="btn btn-ghost" disabled={busy} onClick={() => { const r = promptReason('수임 불성립 사유 (고객에게 보입니다). 결제금액은 전액 환불됩니다.'); if (r) act('reject', { reason: r }); }}>수임 불성립·환불</button>
+                      <button className="btn btn-ghost" disabled={busy} onClick={async () => { const r = await ask({ title: '수임 불성립·환불', description: '고객에게 사유가 보이고, 결제금액은 전액 환불됩니다.', placeholder: '예: 표준 업무범위를 넘는 고액 사건으로 본체 법인 상담이 필요합니다', danger: true, confirmLabel: '불성립·환불' }); if (r) act('reject', { reason: r }); }}>수임 불성립·환불</button>
                     </div>
                   </>
                 ) : lawyerOnly}
@@ -155,7 +189,25 @@ export default function AdminCaseDetail({ id }: { id: number }) {
                       <button className="btn btn-primary" disabled={busy || checked.length < c.checklist.length} onClick={() => act('approve', { checklist: checked })}>
                         검수 완료 ({checked.length}/{c.checklist.length})
                       </button>
-                      <button className="btn btn-ghost" disabled={busy} onClick={() => { const r = promptReason('반려 사유 (예: 요건사실 누락 — 지연손해금 기산일)'); if (r) act('send-back', { reason: r }); }}>반려</button>
+                      <button className="btn btn-ghost" disabled={busy} onClick={async () => { const r = await ask({ title: '검수 반려', description: '반려 사유는 템플릿·문진 개선 자료가 됩니다.', placeholder: '예: 요건사실 누락 — 지연손해금 기산일', confirmLabel: '반려' }); if (r) act('send-back', { reason: r }); }}>반려</button>
+                    </div>
+                    <div className="cite-box">
+                      <h3 className="sub-h" style={{ marginTop: 18 }}>인용 법령·판례 확인</h3>
+                      <textarea value={citeText} onChange={(e) => setCiteText(e.target.value)} placeholder="서면에서 인용 부분을 붙여 넣으세요. 예: 대법원 2019다12345 판결, 민법 제750조" />
+                      <button className="btn btn-ghost" disabled={busy || citeText.trim().length < 2} onClick={async () => {
+                        setError(null);
+                        try { setCites(await api(`/admin/cases/${id}/citations`, { method: 'POST', body: JSON.stringify({ text: citeText }) })); load(); }
+                        catch (e) { setError((e as Error).message); }
+                      }}>확인하기</button>
+                      {cites && (
+                        <ul className="cite-list">
+                          {!cites.api_configured && <li className="sub">국가법령정보센터 인증값이 설정되지 않아 자동 확인을 할 수 없습니다. 직접 확인해 주세요.</li>}
+                          {cites.items.length === 0 && <li className="sub">인용으로 보이는 판례 번호·법령을 찾지 못했습니다.</li>}
+                          {cites.items.map((it) => (
+                            <li key={it.ref}><span className={`cite-badge c-${it.status}`}>{it.status === 'found' ? '확인' : it.status === 'not_found' ? '없음' : '미확인'}</span><b>{it.ref}</b> <span className="sub">{it.message}</span></li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
                   </>
                 ) : lawyerOnly}
@@ -216,8 +268,24 @@ export default function AdminCaseDetail({ id }: { id: number }) {
               <dt>결제</dt><dd>{fmtDate(c.paid_at, true)}</dd>
               <dt>수임</dt><dd>{fmtDate(c.accepted_at, true)}</dd>
               <dt>검수 요청</dt><dd>{fmtDate(c.submitted_at, true)}</dd>
-              <dt>검수 완료</dt><dd>{fmtDate(c.approved_at, true)}{c.reviewer_name ? ` · ${c.reviewer_name}` : ''}</dd>
+              <dt>검수 완료</dt><dd>{fmtDate(c.approved_at, true)}{c.reviewer_name ? ` · ${c.reviewer_name}` : ''}{c.review_seconds ? ` · 검수 ${Math.round(c.review_seconds / 60)}분` : ''}</dd>
+              {c.parent && <><dt>이전 사건</dt><dd><Link href={`/admin/cases/${c.parent.id}`}>{c.parent.case_no}</Link> {c.parent.service_name}</dd></>}
+              {c.children.length > 0 && <><dt>후속 사건</dt><dd>{c.children.map((x) => <div key={x.id}><Link href={`/admin/cases/${x.id}`}>{x.case_no}</Link> {x.service_name} · {x.status_label}</div>)}</dd></>}
             </dl>
+          </section>
+
+          <section className="admin-card">
+            <h2>고객 알림</h2>
+            {c.notifications.length === 0 ? <p className="sub">보낸 알림이 없습니다.</p> : (
+              <ol className="log-list">
+                {c.notifications.map((n) => (
+                  <li key={n.id}>
+                    <b>{NOTIFY_EVENT[n.event] ?? n.event}</b> <span className={`sub ${n.status === 'failed' ? 'overdue' : ''}`}>{n.channel.toUpperCase()} · {NOTIFY_STATUS[n.status] ?? n.status} · {fmtDate(n.created_at, true)}</span>
+                    {n.error && <p>{n.error}</p>}
+                  </li>
+                ))}
+              </ol>
+            )}
           </section>
 
           <section className="admin-card">
@@ -230,6 +298,7 @@ export default function AdminCaseDetail({ id }: { id: number }) {
                 <tr className="total-row"><td>합계</td><td className="num">{won(c.total)}</td></tr>
               </tbody>
             </table>
+            {c.consents && <p className="sub" style={{ marginTop: 8 }}>결제 전 동의 {fmtDate(c.consents.agreed_at, true)} · 문안 {c.consents.version}</p>}
             {c.payments.filter((p) => p.status !== 'ready').map((p) => (
               <p key={p.id} className="sub" style={{ marginTop: 8 }}>
                 {PAY_STATUS[p.status]} {won(p.amount)} · {p.simulated ? '시뮬레이션 결제' : p.method ?? ''} · {fmtDate(p.canceled_at ?? p.approved_at, true)}

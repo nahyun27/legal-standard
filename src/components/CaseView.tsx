@@ -5,10 +5,11 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CheckCircle2, Download, FileText, Paperclip } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
+import PaymentConsent from '@/components/PaymentConsent';
 import { getService, serviceTitle } from '@/data/services';
 import { ApiError, api, fileUrl, fmtDate, fmtSize, upload, type CaseDetail, type CaseStatus } from '@/lib/api';
 import { priceLabel, won } from '@/lib/format';
-import { startPayment } from '@/lib/payment';
+import { startPayment, type Consents, type PayMethod } from '@/lib/payment';
 
 // 고객에게 보여주는 진행 단계. 내부 상태(검수 대기·발송 준비 등)는 고객 눈높이의 5단계로 묶는다.
 const STAGES = ['접수·결제', '수임 검토', '서면 준비', '변호사 검토·서명', '발송·제출'];
@@ -23,6 +24,8 @@ export default function CaseView({ id, justPaid }: { id: number; justPaid: boole
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const [consents, setConsents] = useState<Consents>({ agree_engagement: false, agree_withdrawal: false });
+  const [method, setMethod] = useState<PayMethod>('card');
 
   const load = useCallback(() => {
     api<CaseDetail>(`/cases/${id}`).then(setC).catch((e) => setError(e instanceof ApiError && e.status === 404 ? '사건을 찾을 수 없습니다.' : (e as Error).message));
@@ -55,7 +58,7 @@ export default function CaseView({ id, justPaid }: { id: number; justPaid: boole
     setError(null);
     setBusy('결제창을 여는 중…');
     try {
-      const r = await startPayment(id);
+      const r = await startPayment(id, consents, method);
       if (r !== 'redirected' && r !== 'canceled') setC(r);
     } catch (e) {
       setError((e as Error).message);
@@ -102,6 +105,11 @@ export default function CaseView({ id, justPaid }: { id: number; justPaid: boole
 
       {justPaid && c.status === 'reviewing' && (
         <div className="banner banner-good"><CheckCircle2 size={18} /> 결제가 완료되었습니다. 담당 변호사가 24시간 안에 수임 여부를 검토하고 알려 드립니다.</div>
+      )}
+      {c.quote_note && c.status === 'pending_payment' && (
+        <div className="banner banner-good" style={{ display: 'block' }}>
+          <b>견적 안내</b> — {c.quote_note}<br />결제 금액 {won(c.total)} (부가세 포함). 결제하시면 담당 변호사가 수임 절차를 진행합니다.
+        </div>
       )}
       {c.status === 'rejected' && (
         <div className="banner banner-warn">
@@ -183,13 +191,15 @@ export default function CaseView({ id, justPaid }: { id: number; justPaid: boole
                 </tbody>
               </table>
             )}
-            {c.status === 'pending_payment' && (
+            {c.status === 'pending_payment' && c.total > 0 && (
               <div style={{ display: 'grid', gap: 8, marginTop: 14 }}>
-                <button className="btn btn-primary" onClick={pay} disabled={!!busy}>{won(c.total)} 결제하기</button>
+                <PaymentConsent value={consents} onChange={setConsents} method={method} onMethod={setMethod} />
+                <button className="btn btn-primary" onClick={pay} disabled={!!busy || !consents.agree_engagement || !consents.agree_withdrawal}>{won(c.total)} 결제하기</button>
                 <button className="link-btn" onClick={cancel}>접수 취소</button>
               </div>
             )}
-            {c.paid_at && <p className="sub" style={{ marginTop: 10 }}>결제 {fmtDate(c.paid_at, true)}</p>}
+            {c.paid_at && <p className="sub" style={{ marginTop: 10 }}>결제 {fmtDate(c.paid_at, true)}{c.refunded && ' · 전액 환불됨'}</p>}
+            {c.receipt_url && <a href={c.receipt_url} target="_blank" rel="noreferrer" className="sub" style={{ textDecoration: 'underline' }}>결제 영수증 보기</a>}
           </div>
 
           {nexts.length > 0 && c.status !== 'rejected' && (
@@ -197,9 +207,11 @@ export default function CaseView({ id, justPaid }: { id: number; justPaid: boole
               <h3>다음 단계와 가격</h3>
               <p className="sub" style={{ marginBottom: 10 }}>필요해지면 같은 정찰가로 이어서 신청할 수 있습니다.</p>
               {nexts.map((n) => (
-                <Link key={n.slug} href={`/services/${n.slug}`} className="next-row">
+                // 접수 가능한 상품이면 이 사건 정보로 채운 문진으로 바로 — 아니면 상품 안내로
+                <Link key={n.slug} href={n.s.stage === 'pilot' ? `/intake/${n.slug}?from=${c.id}` : `/services/${n.slug}`} className="next-row">
                   <small>{n.when}</small>
                   <span><b>{serviceTitle(n.s)}</b><em>{priceLabel(n.s.price)}</em></span>
+                  <small className="next-cta">{n.s.stage === 'pilot' ? '이 사건 정보로 이어서 신청 →' : '오픈 예정 · 상품 안내 보기 →'}</small>
                 </Link>
               ))}
             </div>

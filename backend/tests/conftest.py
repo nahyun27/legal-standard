@@ -29,6 +29,14 @@ engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, p
 TestingSession = sessionmaker(bind=engine, autoflush=False)
 
 
+@pytest.fixture(autouse=True)
+def _reset_mfa_failures():
+    from app.core import mfa
+
+    mfa._failures.clear()
+    yield
+
+
 @pytest.fixture()
 def db():
     Base.metadata.create_all(engine)

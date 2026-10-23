@@ -39,9 +39,3 @@ def get_onboarded_user(user: User = Depends(get_current_user)) -> User:
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="회원가입(약관 동의·본인 정보 입력)을 마쳐 주세요.")
     return user
 
-
-def get_admin_user(user: User = Depends(get_current_user)) -> User:
-    if not user.is_admin:
-        # 관리자 화면의 존재를 굳이 알리지 않도록 403 대신 404
-        raise HTTPException(status.HTTP_404_NOT_FOUND)
-    return user

@@ -44,6 +44,9 @@ class User(Base):
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     # 서면 검수(검수 완료 처리)는 변호사만 할 수 있다 — 기획서 IX 원칙 1 "서면 확정의 주체는 변호사"
     is_lawyer: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # 직원 2단계 인증(TOTP). secret 은 등록 시작 시 만들고, 첫 코드 확인에 성공하면 enabled_at 을 찍는다.
+    totp_secret: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    totp_enabled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # 로그아웃·탈퇴 시 올려서 이미 발급된 토큰(특히 14일짜리 refresh)을 전부 무효화한다.
     token_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 

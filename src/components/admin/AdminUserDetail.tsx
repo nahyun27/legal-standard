@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useStaff } from '@/components/admin/AdminShell';
-import { ACTION_LABEL, AdminHead, PROVIDER, StatusPill, USER_STATUS, promptReason } from '@/components/admin/ui';
+import { useReason } from '@/components/admin/ReasonDialog';
+import { ACTION_LABEL, AdminHead, PROVIDER, StatusPill, USER_STATUS } from '@/components/admin/ui';
 import { api, fmtDate, formatPhone } from '@/lib/api';
 import { won } from '@/lib/format';
 
@@ -20,6 +21,7 @@ export default function AdminUserDetail({ id }: { id: number }) {
   const staff = useStaff();
   const [u, setU] = useState<Detail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const ask = useReason();
 
   const load = useCallback(() => api<Detail>(`/admin/users/${id}`).then(setU).catch((e) => setError((e as Error).message)), [id]);
   useEffect(() => { load(); }, [load]);
@@ -34,9 +36,9 @@ export default function AdminUserDetail({ id }: { id: number }) {
     }
   }
 
-  function setRole(role: 'is_admin' | 'is_lawyer', on: boolean) {
+  async function setRole(role: 'is_admin' | 'is_lawyer', on: boolean) {
     const label = role === 'is_admin' ? '관리자' : '변호사';
-    const reason = promptReason(`${u?.name}님의 ${label} 권한을 ${on ? '부여' : '해제'}합니다. 사유를 입력하세요.`);
+    const reason = await ask({ title: `${label} 권한 ${on ? '부여' : '해제'}`, description: `${u?.name}님의 ${label} 권한을 ${on ? '부여' : '해제'}합니다.`, placeholder: '예: 신규 검수 변호사 합류', confirmLabel: on ? '부여' : '해제' });
     if (reason) act('roles', { [role]: on, reason });
   }
 
@@ -103,8 +105,8 @@ export default function AdminUserDetail({ id }: { id: number }) {
               <div className="role-row">
                 <span>{u.status === 'suspended' ? `이용 정지 중 (${fmtDate(u.suspended_at)})` : '이용 정지'}</span>
                 {u.status === 'suspended'
-                  ? <button className="btn btn-ghost" onClick={() => { const r = promptReason('정지 해제 사유'); if (r) act('unsuspend', { reason: r }); }}>해제</button>
-                  : <button className="btn btn-ghost danger" disabled={self} onClick={() => { const r = promptReason('이용 정지 사유 — 로그인 중인 세션도 즉시 끊깁니다'); if (r) act('suspend', { reason: r }); }}>정지</button>}
+                  ? <button className="btn btn-ghost" onClick={async () => { const r = await ask({ title: '정지 해제', confirmLabel: '해제' }); if (r) act('unsuspend', { reason: r }); }}>해제</button>
+                  : <button className="btn btn-ghost danger" disabled={self} onClick={async () => { const r = await ask({ title: '이용 정지', description: '로그인 중인 세션도 즉시 끊깁니다.', danger: true, confirmLabel: '정지' }); if (r) act('suspend', { reason: r }); }}>정지</button>}
               </div>
               {self && <p className="sub" style={{ marginTop: 8 }}>본인의 관리자 권한 해제·정지는 다른 관리자가 해야 합니다.</p>}
             </section>

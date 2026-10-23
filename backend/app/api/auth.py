@@ -264,6 +264,7 @@ def logout(request: Request, response: Response, db: Session = Depends(get_db)) 
         user.token_version += 1
         db.commit()
     clear_auth_cookies(response)
+    response.delete_cookie("ls_mfa", path=f"{settings.API_V1_PREFIX}/admin")
     return {"status": "ok"}
 
 
@@ -311,6 +312,14 @@ def delete_me(response: Response, user: User = Depends(get_current_user), db: Se
     """회원 탈퇴 — 개인정보를 지우고 계정을 비활성화한다. 같은 소셜 계정으로 다시 가입할 수 있게 social_id 도 비운다.
     TODO: 사건(수임) 기록이 생기면 변호사법·세법상 보존 의무 기간 동안은 사건 기록을 별도로 보관해야 한다 —
     그때 탈퇴 처리 범위를 다시 정한다."""
+    from app.models.case import OPEN_STATUSES, Case, CaseStatus
+
+    # 진행 중 사건이 있으면 탈퇴를 막는다 — 의뢰인 계정이 사라지면 서면 수령·연락이 끊긴다
+    open_cases = db.scalars(select(Case).where(Case.user_id == user.id, Case.status.in_([s.value for s in OPEN_STATUSES]))).all()
+    if open_cases:
+        raise HTTPException(status.HTTP_409_CONFLICT, detail=f"진행 중인 사건이 {len(open_cases)}건 있어 탈퇴할 수 없습니다. 사건이 끝난 뒤 탈퇴하시거나 고객센터로 문의해 주세요.")
+    for c in db.scalars(select(Case).where(Case.user_id == user.id, Case.status == CaseStatus.PENDING_PAYMENT)):
+        c.status = CaseStatus.CANCELED
     user.is_active = False
     user.withdrawn_at = _now()
     user.social_id = f"deleted:{user.id}:{secrets.token_hex(4)}"
