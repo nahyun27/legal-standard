@@ -5,7 +5,7 @@ import { SITE_URL } from '@/lib/seo';
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const paths = [
-    '', '/services', '/journeys', '/why', '/process', '/about', '/faq', '/notice', '/terms', '/privacy',
+    '', '/services', '/journeys', '/process', '/about', '/faq', '/notice', '/terms', '/privacy',
     ...SERVICES.map((s) => `/services/${s.slug}`),
     ...JOURNEYS.map((j) => `/journeys/${j.slug}`),
   ];

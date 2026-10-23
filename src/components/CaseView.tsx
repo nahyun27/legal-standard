@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { CheckCircle2, Download, FileText, Paperclip } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import PaymentConsent from '@/components/PaymentConsent';
+import { PageHero } from '@/components/ui';
 import { getService, serviceTitle } from '@/data/services';
 import { ApiError, api, fileUrl, fmtDate, fmtSize, upload, type CaseDetail, type CaseStatus } from '@/lib/api';
 import { priceLabel, won } from '@/lib/format';
@@ -93,16 +94,12 @@ export default function CaseView({ id, justPaid }: { id: number; justPaid: boole
   const canUpload = ['pending_payment', 'reviewing', 'in_progress'].includes(c.status);
 
   return (
-    <div className="container section">
-      <Link href="/my" className="sub">← 내 사건</Link>
-      <div className="case-head">
-        <div>
-          <span className={`status-pill s-${c.status}`}>{c.status_label}</span>
-          <h1 style={{ fontSize: 'clamp(1.6rem, 3.4vw, 2.2rem)', marginTop: 10 }}>{c.service_name}</h1>
-          <p className="sub">{c.case_no} · 접수 {fmtDate(c.created_at)}{c.lawyer_name ? ` · 담당 ${c.lawyer_name} 변호사` : ''}</p>
-        </div>
-      </div>
-
+    <>
+    <PageHero crumbs={[{ label: '내 사건', href: '/my' }, { label: c.case_no }]} title={c.service_name}
+      lead={`${c.case_no} · 접수 ${fmtDate(c.created_at)}${c.lawyer_name ? ` · 담당 ${c.lawyer_name} 변호사` : ''}`}>
+      <div className="hero-badges"><span className={`status-pill s-${c.status}`}>{c.status_label}</span></div>
+    </PageHero>
+    <div className="container section" style={{ paddingTop: 28 }}>
       {justPaid && c.status === 'reviewing' && (
         <div className="banner banner-good"><CheckCircle2 size={18} /> 결제가 완료되었습니다. 담당 변호사가 24시간 안에 수임 여부를 검토하고 알려 드립니다.</div>
       )}
@@ -219,5 +216,6 @@ export default function CaseView({ id, justPaid }: { id: number; justPaid: boole
         </aside>
       </div>
     </div>
+    </>
   );
 }

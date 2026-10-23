@@ -4,9 +4,10 @@ import JourneyTimeline from '@/components/JourneyTimeline';
 import PublicMetrics from '@/components/PublicMetrics';
 import Reveal from '@/components/Reveal';
 import SituationChips from '@/components/SituationChips';
-import { ServiceCard } from '@/components/ui';
+import { ServiceCard, TrustSeal } from '@/components/ui';
 import WhyPrice from '@/components/WhyPrice';
 import { FAQ } from '@/data/faq';
+import { PROMISES } from '@/data/promises';
 import { JOURNEYS } from '@/data/journeys';
 import { getService } from '@/data/services';
 import { COPY } from '@/lib/copy';
@@ -15,11 +16,6 @@ import { won } from '@/lib/format';
 // 광고 영역이다 — 문구는 lib/copy.ts 의 트랙(A/B)과 카피 가이드를 따른다. 비교·절약액·무료 표현 금지.
 // 섹션 구성과 디자인은 의뢰인 프로토타입(홈페이지_최종_AB비교_리걸스탠다드.html 4.1)을 따른다.
 // 프로토타입과 문구가 다른 곳(염가 표방 소지가 있는 "싸게·저렴" 등)은 README 의 "프로토타입과 다른 점" 참고.
-const PROMISES = [
-  { title: COPY.qualityTitle, body: COPY.qualityBody },
-  { title: '인용 검증 시스템', body: '서면에 인용되는 법령·판례는 실존 여부를 확인한 뒤 변호사가 재검토합니다. 오류가 발견되면 보완해 드립니다.' },
-  { title: '비밀 유지', body: '사건 자료는 암호화하여 보관하며, 고객의 사건 정보를 외부 시스템의 학습에 사용하지 않습니다. 변호사법상 비밀유지의무가 전 과정에 적용됩니다.' },
-];
 
 // 진열대 6칸. 고소장은 기본형·표준형을 한 카드로 묶어 보여준다(프로토타입과 동일).
 const SHELF: { slug: string; title?: string; priceNote?: string }[] = [
@@ -45,11 +41,11 @@ export default function Home() {
             <h1>{before}<em>{em}</em>{after}</h1>
             <p className="lead" style={{ marginTop: 20, maxWidth: 540 }}>{COPY.heroLead}</p>
             <div className="hero-actions">
-              <Link href="/journeys" className="btn btn-primary">여정 상품 보기 <ArrowRight size={16} /></Link>
+              <Link href="/journeys" className="btn btn-primary">단계별 총비용 보기 <ArrowRight size={16} /></Link>
               <Link href="/services" className="btn btn-ghost">전체 가격표</Link>
             </div>
             <SituationChips />
-            <p className="hero-note">{COPY.heroNote}</p>
+            <div className="hero-trust"><TrustSeal /><p className="hero-note">{COPY.heroNote}</p></div>
           </div>
           <div className="tagbox">
             <Link href={`/services/${hero.slug}`} className="swingtag" aria-label={`${hero.name} 정찰가 보기`}>
@@ -119,6 +115,7 @@ export default function Home() {
           <span className="eyebrow">Why this price</span>
           <h2>어떻게 이 가격이 가능한가요</h2>
           <Reveal><WhyPrice /></Reveal>
+          <Link href="/about#why" className="text-link">운영 원칙과 검토 변호사 보기 <ArrowRight size={15} /></Link>
         </div>
       </section>
 
@@ -158,7 +155,7 @@ export default function Home() {
           <Reveal>
             <h2>가격을 먼저 확인하세요.<br />끝까지의 비용까지도요.</h2>
             <p>지금 필요한 서비스의 정찰가와 다음 단계 비용을 확인하고, 15분 문진으로 접수해 보세요.</p>
-            <Link href="/journeys" className="btn btn-primary btn-lg">여정 상품 보기 <ArrowRight size={18} /></Link>
+            <Link href="/journeys" className="btn btn-primary btn-lg">단계별 총비용 보기 <ArrowRight size={18} /></Link>
           </Reveal>
         </div>
       </section>

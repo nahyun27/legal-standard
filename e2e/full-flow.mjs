@@ -79,8 +79,8 @@ try {
   await payBtn.click();
   await customer.waitForURL(/\/my\/cases\/\d+\?paid=1/);
   const caseId = customer.url().match(/cases\/(\d+)/)[1];
-  await customer.waitForSelector('.case-head .status-pill');
-  expect((await customer.locator('.case-head .status-pill').innerText()) === '수임 검토 중', '결제 후 수임 검토로 넘어간다');
+  await customer.waitForSelector('.page-hero .status-pill');
+  expect((await customer.locator('.page-hero .status-pill').innerText()) === '수임 검토 중', '결제 후 수임 검토로 넘어간다');
 
   // ── 직원 ──
   const staff = await (await browser.newContext()).newPage();
