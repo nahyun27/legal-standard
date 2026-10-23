@@ -8,10 +8,10 @@ import { useAuth } from '@/components/AuthProvider';
 import { FIRM } from '@/lib/site';
 
 const NAV = [
-  { href: '/journeys', label: '여정 상품' },
   { href: '/services', label: '서비스·가격' },
-  { href: '/why', label: '왜 이 가격인가' },
-  { href: '/process', label: '진행 방식' },
+  { href: '/journeys', label: '단계별 총비용' },
+  { href: '/process', label: '이용 방법' },
+  { href: '/about', label: '소개' },
   { href: '/faq', label: 'FAQ' },
 ];
 

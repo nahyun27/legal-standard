@@ -1,6 +1,8 @@
-import { PageHead } from '@/components/ui';
-import { FAQ } from '@/data/faq';
+import Link from 'next/link';
+import FaqBrowser from '@/components/FaqBrowser';
+import { PageHero } from '@/components/ui';
 import { pageMeta } from '@/lib/seo';
+import { FIRM } from '@/lib/site';
 
 export const metadata = pageMeta({
   title: '자주 묻는 질문',
@@ -11,15 +13,17 @@ export const metadata = pageMeta({
 export default function FaqPage() {
   return (
     <>
-      <PageHead eyebrow="FAQ" title="자주 묻는 질문" />
-      <div className="container prose">
-        {FAQ.map((f) => (
-          <details key={f.q} className="faq">
-            <summary>{f.q}</summary>
-            <p>{f.a}</p>
-          </details>
-        ))}
-      </div>
+      <PageHero crumbs={[{ label: '자주 묻는 질문' }]} eyebrow="FAQ" title="자주 묻는 질문" lead="가격·진행·서면 작성 방식·개인정보에 관한 질문을 모았습니다." />
+      <section className="band" style={{ paddingTop: 44 }}>
+        <div className="container" style={{ maxWidth: 860 }}>
+          <FaqBrowser />
+          <div className="faq-more">
+            <b>찾는 답이 없나요?</b>
+            <p>대표전화 {FIRM.tel} · {FIRM.email} · {FIRM.hours}</p>
+            <Link href="/notice" className="sub" style={{ textDecoration: 'underline' }}>서비스 운영 고지 보기</Link>
+          </div>
+        </div>
+      </section>
     </>
   );
 }

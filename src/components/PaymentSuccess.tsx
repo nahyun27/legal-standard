@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import { AlertCircle } from 'lucide-react';
 import { api, type CaseDetail } from '@/lib/api';
 
 /** 토스 결제창 성공 복귀 — 서버 승인 API 를 불러 결제를 확정한다(금액은 서버가 다시 대조). */
@@ -27,16 +28,17 @@ export default function PaymentSuccess({ caseId, paymentKey, orderId, amount }: 
     <div className="container auth-wrap">
       <div className="auth-card" style={{ textAlign: 'center' }}>
         {error ? (
-          <>
+          <div className="status-screen">
+            <span className="status-icon err"><AlertCircle size={30} /></span>
             <h1 className="auth-title">결제를 확인하지 못했습니다</h1>
             <p className="form-error" style={{ margin: '16px 0' }}>{error}</p>
             <Link href={caseId ? `/my/cases/${caseId}` : '/my'} className="btn btn-primary">내 사건으로</Link>
-          </>
+          </div>
         ) : (
-          <>
+          <div className="status-screen">
             <div className="spinner" />
             <p className="sub" style={{ marginTop: 16 }}>결제를 확인하고 있습니다…</p>
-          </>
+          </div>
         )}
       </div>
     </div>

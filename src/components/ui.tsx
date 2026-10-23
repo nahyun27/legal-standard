@@ -1,16 +1,70 @@
 import Link from 'next/link';
-import { Check, Minus } from 'lucide-react';
+import { Check, ChevronRight, Minus, ShieldCheck } from 'lucide-react';
 import type { Service } from '@/data/types';
 import { STAGE_LABEL, TIER_LABEL, serviceTitle } from '@/data/services';
 import { priceLabel } from '@/lib/format';
 
-export function PageHead({ eyebrow, title, lead }: { eyebrow?: string; title: string; lead?: string }) {
+export interface Crumb { label: string; href?: string }
+
+/**
+ * 서브페이지 상단 영역 — 위치 표시(브레드크럼)·제목·설명 + 오른쪽 요약(aside).
+ * 연한 종이 질감 배경에 진입 애니메이션. 모든 공개 서브페이지가 이 틀을 쓴다.
+ */
+export function PageHero({ eyebrow, title, lead, crumbs, aside, children }: {
+  eyebrow?: string; title: string; lead?: string; crumbs?: Crumb[]; aside?: React.ReactNode; children?: React.ReactNode;
+}) {
   return (
-    <div className="container page-head">
-      {eyebrow && <span className="eyebrow">{eyebrow}</span>}
-      <h1>{title}</h1>
-      {lead && <p className="lead">{lead}</p>}
-    </div>
+    <section className="page-hero">
+      <div className={`container page-hero-grid${aside ? ' has-aside' : ''}`}>
+        <div className="page-hero-copy">
+          {crumbs && (
+            <nav className="crumbs" aria-label="현재 위치">
+              <Link href="/">홈</Link>
+              {crumbs.map((c) => (
+                <span key={c.label}>
+                  <ChevronRight size={13} aria-hidden="true" />
+                  {c.href ? <Link href={c.href}>{c.label}</Link> : <span aria-current="page">{c.label}</span>}
+                </span>
+              ))}
+            </nav>
+          )}
+          {eyebrow && <span className="eyebrow">{eyebrow}</span>}
+          <h1>{title}</h1>
+          {lead && <p className="lead">{lead}</p>}
+          {children}
+        </div>
+        {aside && <div className="page-hero-aside">{aside}</div>}
+      </div>
+    </section>
+  );
+}
+
+/** 이전 이름 호환 — 새 페이지는 PageHero 를 쓴다 */
+export const PageHead = PageHero;
+
+/**
+ * 신뢰 인장 — "법무법인 소속 변호사 검토·서명". 광고 영역에서도 쓸 수 있는 사실 표현만 담는다(카피 가이드: 검토·서명·책임 허용).
+ */
+export function TrustSeal({ compact }: { compact?: boolean }) {
+  return (
+    <span className={`trust-seal${compact ? ' compact' : ''}`}>
+      <span className="seal-mark" aria-hidden="true"><ShieldCheck size={compact ? 14 : 16} /></span>
+      <span className="seal-text">
+        <b>변호사 검토·서명</b>
+        {!compact && <small>법무법인(유한) 에스제이파트너스</small>}
+      </span>
+    </span>
+  );
+}
+
+/** 숫자·항목 한 줄 요약 칩(페이지 상단 aside 등) */
+export function StatChips({ items }: { items: { label: string; value: string }[] }) {
+  return (
+    <dl className="stat-chips">
+      {items.map((i) => (
+        <div key={i.label}><dt>{i.label}</dt><dd>{i.value}</dd></div>
+      ))}
+    </dl>
   );
 }
 
@@ -44,14 +98,16 @@ export function StageBadge({ service }: { service: Pick<Service, 'stage'> }) {
 export function ServiceCard({ service, title, priceNote }: { service: Service; title?: string; priceNote?: string }) {
   const highlights = service.highlights ?? service.includes.slice(0, 3);
   return (
-    <Link href={`/services/${service.slug}`} className="card">
+    <Link href={`/services/${service.slug}`} className="card service-card">
       {service.tag && <span className="mini-tag">{service.tag}</span>}
+      {service.stage !== 'pilot' && <span className="upcoming-label">{STAGE_LABEL[service.stage]}</span>}
       <h3>{title ?? serviceTitle(service)}</h3>
       <p className="use">{service.summary}</p>
       <Price service={service} note={priceNote ?? ''} compact />
       <ul className="inc">
         {highlights.map((h) => <li key={h}>{h}</li>)}
       </ul>
+      <span className="card-more">자세히 보기 <ChevronRight size={14} /></span>
     </Link>
   );
 }

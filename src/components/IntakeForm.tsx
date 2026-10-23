@@ -3,11 +3,13 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { Paperclip, X } from 'lucide-react';
+import { Check, CloudCheck, Paperclip, X } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import PaymentConsent from '@/components/PaymentConsent';
 import { questionsFor } from '@/data/intakeQuestions';
 import type { Service } from '@/data/types';
+import { TrustSeal } from '@/components/ui';
+import { serviceTitle } from '@/data/services';
 import { api, fmtSize, upload, type CaseDetail, type Quote } from '@/lib/api';
 import { won } from '@/lib/format';
 import { startPayment, type Consents, type PayMethod } from '@/lib/payment';
@@ -160,12 +162,22 @@ export default function IntakeForm({ service, parentId }: { service: Service; pa
   const setAnswer = (k: string, v: string) => setD({ ...d, answers: { ...d.answers, [k]: v } });
 
   return (
-    <div className="card">
-      <div className="sub" style={{ marginBottom: 8 }}>{step + 1} / {STEPS.length} · {STEPS[step]}</div>
+    <div className="detail detail-page intake-layout">
+    <div className="card intake-card">
+      {/* 단계 표시 — 지나온 단계는 눌러서 돌아갈 수 있다 */}
+      <ol className="intake-steps">
+        {STEPS.map((label, i) => (
+          <li key={label} className={i < step ? 'done' : i === step ? 'now' : ''}>
+            <button type="button" disabled={i > step || !!busy} onClick={() => go(i)}>
+              <span>{i < step ? <Check size={13} /> : i + 1}</span>{label}
+            </button>
+          </li>
+        ))}
+      </ol>
       <div className="progress"><span style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} /></div>
 
       {parentNo && <p className="notice" style={{ marginBottom: 16 }}>{parentNo} 사건의 정보로 채웠습니다. 바뀐 내용만 고쳐 주세요.</p>}
-      <form onSubmit={(e) => { e.preventDefault(); if (step < STEPS.length - 1 && canNext) go(step + 1); }}>
+      <form key={step} className="intake-step" onSubmit={(e) => { e.preventDefault(); if (step < STEPS.length - 1 && canNext) go(step + 1); }}>
         {step === 0 && (
           <>
             <div className="field"><label htmlFor="cn">의뢰인 성명</label><input id="cn" value={d.clientName} onChange={set('clientName')} required autoComplete="name" /></div>
@@ -292,6 +304,26 @@ export default function IntakeForm({ service, parentId }: { service: Service; pa
           <p className="sub" style={{ marginTop: 12 }}>담당 변호사가 수임을 확정하지 않으면 결제금액은 전액 환불됩니다.</p>
         )}
       </form>
+    </div>
+    <aside className="price-panel intake-summary">
+      <div className="detail-block">
+        <span className="eyebrow" style={{ marginBottom: 6 }}>Summary</span>
+        <h3>{serviceTitle(service)}</h3>
+        <dl className="sum-list">
+          <div><dt>의뢰인</dt><dd>{d.clientName || '—'}</dd></div>
+          <div><dt>상대방</dt><dd>{d.opponent || '—'}</dd></div>
+          <div><dt>청구 금액</dt><dd>{d.amount ? `${d.amount}원` : '—'}</dd></div>
+          <div><dt>첨부 자료</dt><dd>{files.length ? `${files.length}개` : '—'}</dd></div>
+        </dl>
+        <div className="sum-total">
+          <span>{isQuote ? '수임료' : step === 3 && quote ? '결제 총액' : '정찰가'}</span>
+          <b>{isQuote ? '개별 견적' : step === 3 && quote ? won(quote.total) : service.price.kind === 'fixed' || service.price.kind === 'from' ? `${won(service.price.amount)}${service.price.kind === 'from' ? '~' : ''}` : '—'}</b>
+        </div>
+        {!isQuote && step < 3 && <p className="sub" style={{ marginTop: 6 }}>부가세·실비는 마지막 단계에서 항목별로 계산됩니다.</p>}
+        <p className="autosave"><CloudCheck size={14} /> 입력 내용이 이 브라우저에 자동 저장됩니다</p>
+      </div>
+      <div className="price-panel-trust"><TrustSeal /></div>
+    </aside>
     </div>
   );
 }

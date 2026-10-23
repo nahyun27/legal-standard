@@ -25,6 +25,10 @@ function lanAddresses(): string[] {
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   allowedDevOrigins: [...lanAddresses(), ...(process.env.DEV_ORIGINS?.split(',').map((s) => s.trim()).filter(Boolean) ?? [])],
+  async redirects() {
+    // "왜 이 가격인가"는 내용이 얇아 소개 페이지의 한 섹션으로 합쳤다(2026-10) — 예전 링크는 그 섹션으로
+    return [{ source: '/why', destination: '/about#why', permanent: true }];
+  },
   async headers() {
     return [{ source: '/:path*', headers: SECURITY_HEADERS }];
   },

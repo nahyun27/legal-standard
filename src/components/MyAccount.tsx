@@ -4,9 +4,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
+import { PageHero } from '@/components/ui';
 import { api, fmtDate, formatPhone, type CaseDetail, type User } from '@/lib/api';
 import { won } from '@/lib/format';
 
+// 사건 카드 진행 막대(%) — 고객용 5단계 기준
+const PROGRESS: Record<string, number> = { pending_payment: 8, reviewing: 25, in_progress: 50, lawyer_review: 70, approved: 85, delivered: 100, rejected: 100, canceled: 0 };
 const PROVIDER_LABEL = { kakao: '카카오', naver: '네이버', dev: '개발용' } as const;
 
 export default function MyAccount() {
@@ -61,11 +64,10 @@ export default function MyAccount() {
   }
 
   return (
+    <>
+    <PageHero crumbs={[{ label: '내 사건' }]} eyebrow="My cases" title={`${user.name}님의 사건`} lead="접수한 사건의 진행 상황과 완성된 서면을 이곳에서 확인합니다." />
     <div className="container section">
-      <span className="eyebrow">My cases</span>
-      <h1 style={{ fontSize: 'clamp(1.7rem, 3.6vw, 2.4rem)' }}>{user.name}님의 사건</h1>
-
-      <div className="detail" style={{ marginTop: 32 }}>
+      <div className="detail">
         <div>
           {cases === null ? (
             <div className="spinner" />
@@ -74,14 +76,14 @@ export default function MyAccount() {
               <h3>접수한 사건이 없습니다</h3>
               <p>필요한 서비스의 정찰가와 다음 단계 비용을 확인하고 온라인 문진으로 접수해 보세요.</p>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 18 }}>
-                <Link href="/journeys" className="btn btn-primary">여정 상품 보기</Link>
+                <Link href="/journeys" className="btn btn-primary">단계별 총비용 보기</Link>
                 <Link href="/services" className="btn btn-ghost">전체 가격표</Link>
               </div>
             </div>
           ) : (
             <div className="grid" style={{ gap: 14 }}>
               {cases.map((c) => (
-                <Link key={c.id} href={`/my/cases/${c.id}`} className="card case-card">
+                <Link key={c.id} href={`/my/cases/${c.id}`} className={`card case-card${c.status === 'delivered' ? ' is-done' : ['rejected', 'canceled'].includes(c.status) ? ' is-stopped' : ''}`}>
                   <div className="case-card-top">
                     <span className={`status-pill s-${c.status}`}>{c.status_label}</span>
                     <span className="sub">{c.case_no}</span>
@@ -89,6 +91,7 @@ export default function MyAccount() {
                   <h3>{c.service_name}</h3>
                   <p>{c.opponent_name ? `상대방 ${c.opponent_name} · ` : ''}접수 {fmtDate(c.created_at)}{c.due_at && !['delivered', 'rejected'].includes(c.status) ? ` · 납기 ${fmtDate(c.due_at)}` : ''}</p>
                   <span className="price price-sm" style={{ marginTop: 8 }}>{c.total ? won(c.total) : '개별 견적'}</span>
+                  <div className="case-progress" aria-label="진행 정도"><span style={{ width: `${PROGRESS[c.status] ?? 0}%` }} /></div>
                 </Link>
               ))}
             </div>
@@ -113,5 +116,6 @@ export default function MyAccount() {
         </aside>
       </div>
     </div>
+    </>
   );
 }

@@ -32,7 +32,7 @@ export const SERVICES: Service[] = [
     name: '지급명령 신청',
     summary: '차용증·거래내역이 있는 금전채권을 재판 없이 집행권원으로.',
     price: { kind: 'fixed', amount: 190_000 },
-    tag: '여정 상품',
+    tag: '단계별 비용 공개',
     highlights: ['전자소송 제출 포함', '표준 납기 3영업일', '이의 시 전환가 사전 공개'],
     includes: ['지급명령 신청서 작성', '변호사 검토·서명', '전자소송 제출', '보정명령 1회 대응'],
     excludes: ['채무자 이의 후 소송 수행(→ 소송 전환 상품)', '강제집행'],
@@ -52,7 +52,7 @@ export const SERVICES: Service[] = [
     variant: '기본형',
     summary: '고소장 작성과 변호사 검토. 제출은 의뢰인이 직접.',
     price: { kind: 'fixed', amount: 219_000 },
-    tag: '여정 상품',
+    tag: '단계별 비용 공개',
     highlights: ['구성요건·증거목록 검토', '변호사 검토·서명', '불송치 이의신청 연계 · 납기 5영업일'],
     includes: ['고소장 작성', '구성요건·증거목록 검토', '변호사 검토·서명', '1회 수정', '제출 방법 안내'],
     excludes: ['수사기관 대리 제출', '조사 동석', '불송치 이의신청(→ 별도 상품)'],
@@ -68,7 +68,7 @@ export const SERVICES: Service[] = [
     variant: '표준형',
     summary: '변호사 명의로 수사기관에 대리 제출. 불송치 이의신청까지 가격 연계.',
     price: { kind: 'fixed', amount: 290_000 },
-    tag: '여정 상품',
+    tag: '단계별 비용 공개',
     highlights: ['구성요건·증거목록 검토', '변호사 명의 대리 제출', '불송치 이의신청 연계 · 납기 5영업일'],
     includes: [
       '고소장 작성·구성요건·증거목록 검토',
@@ -232,3 +232,12 @@ export function getService(slug: string) {
 export function serviceTitle(s: Service) {
   return s.variant ? `${s.name} ${s.variant}` : s.name;
 }
+
+/** 상품 상세 "준비하면 좋은 자료" — 상황별 공통. 문진 문항(intakeQuestions)과 함께 검수 시간을 줄인다. */
+export const PREP_BY_CATEGORY: Record<Category, string[]> = {
+  money: ['차용증·계약서·거래명세서', '계좌이체 내역 또는 영수증', '갚으라고 요구한 문자·카카오톡 대화', '상대방 주소와 연락처'],
+  criminal: ['피해 사실이 드러나는 대화·게시물 캡처', '송금 내역(재산 피해인 경우)', '진단서·사진(신체 피해인 경우)', '상대방에 대해 아는 정보(이름·연락처·계좌·아이디)'],
+  lease: ['임대차계약서', '보증금을 보낸 이체 내역', '확정일자·전입신고 확인 자료', '집주인과 주고받은 연락'],
+  review: ['검토받을 초안 파일', '초안에 인용한 증거', '상대방이 낸 서면(받은 경우)'],
+  litigation: ['법원·상대방에게서 받은 서류', '계약서·증거 자료', '지금까지의 진행 경과 메모'],
+};
