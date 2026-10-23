@@ -1,8 +1,11 @@
 /**
  * 백엔드 API 클라이언트. 로그인은 httpOnly 쿠키라 JS 가 토큰을 만지지 않는다 — credentials: 'include' 만 붙인다.
  * access 토큰(30분)이 만료돼 401 이 오면 refresh 를 한 번 시도하고 원래 요청을 다시 보낸다.
+ *
+ * 기본은 같은 주소의 /api/v1 (src/app/api/v1/[...path]/route.ts 가 백엔드로 넘긴다). 백엔드를 다른 도메인에 따로 둘 때만
+ * NEXT_PUBLIC_API_BASE_URL 을 지정한다 — 그 경우엔 백엔드 CORS_ORIGINS 와 쿠키 도메인을 맞춰야 한다.
  */
-export const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8002';
+export const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? '';
 const V1 = `${API_BASE}/api/v1`;
 
 export class ApiError extends Error {
