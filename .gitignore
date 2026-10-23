@@ -1,0 +1,30 @@
+node_modules
+.env
+.env.*
+!.env.example
+.DS_Store
+*.local
+
+# 사업기획서·재무모델 등 내부 문서(대외비)는 저장소에 올리지 않음
+*.docx
+*.xlsx
+*.pdf
+
+# Next.js
+.next
+next-env.d.ts
+*.tsbuildinfo
+
+# Backend (Python, 추가 예정)
+backend/venv/
+backend/uploads/
+# 사건 파일(증거·서면) — 의뢰인 자료라 절대 저장소에 올리지 않는다
+backend/storage/
+__pycache__/
+*.pyc
+
+# 의뢰인이 준 홈페이지 프로토타입(내부 검토용) — 카피·구성은 src/lib/copy.ts·홈에 반영됨, 원본은 저장소에 두지 않음
+홈페이지_*.html
+
+# 내부 문서(사업기획서·재무모델 내용을 인용한 개발 계획 등, 대외비) — 로컬에만 둔다
+docs/

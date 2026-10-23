@@ -1,0 +1,22 @@
+# 로컬 개발용 DB. KCPEC(5432)·폴리스맵(5433)과 겹치지 않게 5434 를 쓴다.
+services:
+  postgres:
+    image: postgres:16
+    container_name: legal-standard-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: legal_standard
+      POSTGRES_USER: legal
+      POSTGRES_PASSWORD: legal1234
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U legal -d legal_standard"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres_data:

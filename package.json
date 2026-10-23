@@ -1,0 +1,26 @@
+{
+  "name": "legal-standard",
+  "version": "0.1.0",
+  "description": "리걸스탠다드 — 전 구간 정찰제 법률서비스 (법무법인(유한) 에스제이파트너스)",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "next typegen && tsc --noEmit"
+  },
+  "dependencies": {
+    "@tosspayments/tosspayments-sdk": "^2.10.0",
+    "lucide-react": "^1.61.0",
+    "next": "^16.2.4",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "typescript": "^5.9.3"
+  }
+}
