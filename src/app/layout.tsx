@@ -22,7 +22,7 @@ export const viewport: Viewport = { themeColor: '#14213d' };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="ko" suppressHydrationWarning>
+    <html lang="ko" data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>
         {/* 스크롤 등장 효과(Reveal)의 숨김 상태는 JS 가 돌 때만 적용한다 — JS 없이도 내용이 보이게 */}
         <script dangerouslySetInnerHTML={{ __html: "document.documentElement.classList.add('js')" }} />

@@ -23,8 +23,11 @@ class Settings(BaseSettings):
     COOKIE_SECURE: bool = False
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
 
-    FRONTEND_BASE_URL: str = "http://localhost:3000"
-    BACKEND_BASE_URL: str = "http://localhost:8002"
+    # 브라우저는 프론트와 같은 주소의 /api/v1 로 백엔드를 부른다(next.config rewrites, 운영은 Nginx).
+    # FRONTEND_BASE_URL: 로그인 후 되돌아갈 주소의 앞부분. 비우면 상대 경로로 돌려보내 접속한 주소(localhost·LAN IP·도메인) 그대로 간다.
+    # BACKEND_BASE_URL: 소셜 로그인 콜백 주소의 앞부분 = 브라우저가 /api/v1 에 접근하는 공개 주소(카카오·네이버 콘솔에 등록하는 값).
+    FRONTEND_BASE_URL: str = ""
+    BACKEND_BASE_URL: str = "http://localhost:3000"
 
     KAKAO_CLIENT_ID: str | None = None
     KAKAO_CLIENT_SECRET: str | None = None

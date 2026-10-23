@@ -4,6 +4,13 @@ from sqlalchemy.orm import Session
 from app.models.audit import AuditLog
 
 
+def client_ip(request: Request | None) -> str | None:
+    """접속자 IP. 프록시(Next 라우트 핸들러·Nginx)를 거친 X-Forwarded-For 는 uvicorn 이 신뢰 주소에서 온 것만 반영한다.
+    IPv4 가 IPv6 형식(::ffff:1.2.3.4)으로 오면 IPv4 로 적는다."""
+    host = request.client.host if request and request.client else None
+    return host.removeprefix("::ffff:") if host else None
+
+
 def record(
     db: Session,
     action: str,
@@ -19,6 +26,6 @@ def record(
     db.add(
         AuditLog(
             actor_id=actor_id, action=action, target_type=target_type, target_id=target_id,
-            reason=reason, detail=detail, ip=request.client.host if request and request.client else None,
+            reason=reason, detail=detail, ip=client_ip(request),
         )
     )
