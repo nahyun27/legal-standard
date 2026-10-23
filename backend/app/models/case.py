@@ -49,6 +49,10 @@ class Case(Base):
     intake: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     # 이해충돌 확인용으로 따로 뽑아 둔다(검색 대상)
     opponent_name: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+    # 이해충돌 대조용 정규화 키("(주) 상대 상사" → "상대상사"). conflict.name_key() 로 만든다.
+    opponent_key: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+    # 여정 연결 — 이 사건이 어느 사건의 "다음 단계"로 신청됐는지(T1→후속 전환율 측정, 기획서 KPI)
+    parent_case_id: Mapped[int | None] = mapped_column(ForeignKey("cases.id"), nullable=True, index=True)
     claim_amount: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
     # 금액 스냅샷 — 결제 시점의 정찰가를 고정한다(이후 가격이 바뀌어도 이 사건엔 영향 없음)
@@ -65,6 +69,10 @@ class Case(Base):
     delivery_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     # 유입 경로(채널별 CAC 계산용, 기획서 KPI). 포트폴리오 사이트 간 연결도 정산 없이 기록만.
     source: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # 결제 전 동의(수임 조건·청약철회 제한 고지) — {"version": …, "agreed_at": …, "items": […]}
+    consents: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # 심화 사건 견적 안내 문구(고객에게 보임)
+    quote_note: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -73,6 +81,10 @@ class Case(Base):
     delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     rejected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # 변호사가 검수 대기 사건을 처음 연 시각 — 실제 검수시간(기획서 KPI 45분) 측정용. 반려되면 비운다.
+    review_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    review_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    reminded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
@@ -127,6 +139,7 @@ class Payment(Base):
     canceled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     cancel_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     raw: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    receipt_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     case: Mapped[Case] = relationship(back_populates="payments")

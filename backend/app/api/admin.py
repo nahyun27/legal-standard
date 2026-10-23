@@ -4,34 +4,56 @@
 모든 조치와 개인정보 열람은 audit_logs 에 남긴다(개인정보 접속기록 보관, 기획서 "처리 로그 전량 문서화").
 """
 
+import csv
+import io
 from datetime import timedelta
 from math import ceil
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.cases import file_dict
-from app.core import storage, toss
+from app.core import citations, mfa, storage, toss
 from app.core.audit import record
 from app.core.catalog import get_product
+from app.core.config import settings
+from app.core.conflict import find_conflicts, name_key
 from app.core.database import get_db
-from app.core.deps import get_admin_user, get_current_user
+from app.core.deps import get_current_user
 from app.core.notify import notify
-from app.core.timeutil import add_business_days, aware, now
+from app.core.timeutil import add_business_days, aware, kst_day_start, now
 from app.models.audit import AuditLog
 from app.models.case import OPEN_STATUSES, STATUS_LABEL, Case, CaseFile, CaseStatus, Payment
+from app.models.ops import ConflictParty, Notification
 from app.models.user import User
-from app.schemas.case import AcceptIn, ApproveIn, DeliverIn, NoteIn, ReasonIn, RolesIn
+from app.schemas.case import AcceptIn, ApproveIn, CitationIn, DeliverIn, MfaCodeIn, NoteIn, QuoteIn, ReasonIn, RolesIn
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 PAGE_SIZE = 20
 
 
-def get_staff_user(user: User = Depends(get_current_user)) -> User:
+def get_staff_pre_mfa(user: User = Depends(get_current_user)) -> User:
+    """직원인지만 확인(2단계 인증 전). /me 와 2단계 인증 등록·확인에만 쓴다."""
     if not user.is_staff:
         raise HTTPException(status.HTTP_404_NOT_FOUND)  # 관리자 화면의 존재를 알리지 않는다
+    return user
+
+
+def get_staff_user(request: Request, user: User = Depends(get_staff_pre_mfa)) -> User:
+    """직원 + (요구되면) 2단계 인증 통과. 운영 환경에서는 항상 요구된다."""
+    if settings.mfa_required:
+        if not user.totp_enabled_at:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, detail="MFA_SETUP_REQUIRED")
+        if not mfa.mfa_passed(request, user):
+            raise HTTPException(status.HTTP_403_FORBIDDEN, detail="MFA_REQUIRED")
+    return user
+
+
+def get_admin_user(user: User = Depends(get_staff_user)) -> User:
+    if not user.is_admin:
+        raise HTTPException(status.HTTP_404_NOT_FOUND)
     return user
 
 
@@ -47,15 +69,55 @@ def mask_phone(p: str | None) -> str | None:
 
 
 @router.get("/me")
-def admin_me(user: User = Depends(get_staff_user)) -> dict:
-    return {"id": user.id, "name": user.name, "is_admin": user.is_admin, "is_lawyer": user.is_lawyer}
+def admin_me(request: Request, user: User = Depends(get_staff_pre_mfa)) -> dict:
+    return {
+        "id": user.id, "name": user.name, "is_admin": user.is_admin, "is_lawyer": user.is_lawyer,
+        "mfa_required": settings.mfa_required, "mfa_enabled": bool(user.totp_enabled_at), "mfa_passed": mfa.mfa_passed(request, user),
+    }
+
+
+@router.post("/mfa/setup")
+def mfa_setup(user: User = Depends(get_staff_pre_mfa), db: Session = Depends(get_db)) -> dict:
+    if user.totp_enabled_at:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="이미 2단계 인증을 등록했습니다.")
+    if not user.totp_secret:
+        user.totp_secret = mfa.new_secret()
+        db.commit()
+    return mfa.provisioning(user)
+
+
+@router.post("/mfa/enable")
+def mfa_enable(payload: MfaCodeIn, request: Request, response: Response, user: User = Depends(get_staff_pre_mfa), db: Session = Depends(get_db)) -> dict:
+    if user.totp_enabled_at:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="이미 2단계 인증을 등록했습니다.")
+    if not mfa.verify_code(user, payload.code):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="인증 코드가 맞지 않습니다.")
+    user.totp_enabled_at = now()
+    record(db, "mfa.enable", actor_id=user.id, target_type="user", target_id=user.id, request=request)
+    db.commit()
+    mfa.set_mfa_cookie(response, user)
+    return {"status": "ok"}
+
+
+@router.post("/mfa/verify")
+def mfa_verify(payload: MfaCodeIn, request: Request, response: Response, user: User = Depends(get_staff_pre_mfa), db: Session = Depends(get_db)) -> dict:
+    if not user.totp_enabled_at:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="2단계 인증을 먼저 등록해 주세요.")
+    if not mfa.verify_code(user, payload.code):
+        record(db, "mfa.fail", actor_id=user.id, target_type="user", target_id=user.id, request=request)
+        db.commit()
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="인증 코드가 맞지 않습니다.")
+    mfa.set_mfa_cookie(response, user)
+    return {"status": "ok"}
 
 
 @router.get("/stats")
 def stats(_: User = Depends(get_staff_user), db: Session = Depends(get_db)) -> dict:
     t = now()
-    today = t.replace(hour=0, minute=0, second=0, microsecond=0)
-    week = t - timedelta(days=7)
+    # "오늘"·"7일"은 한국 날짜 기준(UTC 자정으로 자르면 오전 9시 전 결제가 전날로 잡힌다)
+    today = kst_day_start()
+    week = kst_day_start(6)
+    month = t - timedelta(days=30)
     users = select(func.count(User.id)).where(User.withdrawn_at.is_(None))
     by_status = dict(db.execute(select(Case.status, func.count(Case.id)).group_by(Case.status)).all())
     paid = select(func.coalesce(func.sum(Payment.amount), 0)).where(Payment.status == "done")
@@ -78,7 +140,25 @@ def stats(_: User = Depends(get_staff_user), db: Session = Depends(get_db)) -> d
             "d7": db.scalar(paid.where(Payment.approved_at >= week)) or 0,
             "total": db.scalar(paid) or 0,
         },
+        "kpi": kpis(db, month),
         "status_labels": {s.value: STATUS_LABEL[s] for s in CaseStatus},
+    }
+
+
+def kpis(db: Session, since) -> dict:
+    """기획서 핵심 관리지표(최근 30일): 건당 검수시간 45분 이하, 납기 준수율 95%, T1→후속 전환율 25%."""
+    reviewed = db.scalars(select(Case.review_seconds).where(Case.approved_at >= since, Case.review_seconds.is_not(None))).all()
+    delivered = db.scalars(select(Case).where(Case.delivered_at >= since)).all()
+    on_time = [c for c in delivered if c.due_at and aware(c.delivered_at) <= aware(c.due_at)]
+    finished = db.scalar(select(func.count(Case.id)).where(Case.status == CaseStatus.DELIVERED)) or 0
+    followups = db.scalar(select(func.count(Case.id)).where(Case.parent_case_id.is_not(None), Case.paid_at.is_not(None))) or 0
+    return {
+        "avg_review_minutes": round(sum(reviewed) / len(reviewed) / 60, 1) if reviewed else None,
+        "reviewed_30d": len(reviewed),
+        "on_time_rate": round(len(on_time) / len(delivered) * 100) if delivered else None,
+        "delivered_30d": len(delivered),
+        "followup_rate": round(followups / finished * 100) if finished else None,
+        "followups": followups,
     }
 
 
@@ -206,21 +286,6 @@ def case_row(c: Case, db: Session) -> dict:
     }
 
 
-def find_conflicts(db: Session, c: Case) -> list[dict]:
-    """이해충돌 후보. 이름 일치는 동명이인일 수 있으니 '후보'로만 보여주고 판단은 변호사가 한다."""
-    out: list[dict] = []
-    client_name = (c.intake or {}).get("client_name")
-    if c.opponent_name:
-        same_opp = db.scalars(select(Case).where(Case.id != c.id, func.lower(Case.opponent_name) == c.opponent_name.lower(), Case.status != CaseStatus.CANCELED)).all()
-        out += [{"kind": "같은 상대방의 다른 사건", "case_id": x.id, "case_no": x.case_no, "name": x.opponent_name} for x in same_opp]
-        members = db.scalars(select(User).where(func.lower(User.name) == c.opponent_name.lower(), User.id != c.user_id)).all()
-        out += [{"kind": "상대방과 이름이 같은 회원", "user_id": u.id, "name": u.name} for u in members]
-    if client_name:
-        reverse = db.scalars(select(Case).where(Case.id != c.id, func.lower(Case.opponent_name) == client_name.lower(), Case.status != CaseStatus.CANCELED)).all()
-        out += [{"kind": "이 의뢰인이 상대방인 다른 사건", "case_id": x.id, "case_no": x.case_no, "name": x.opponent_name} for x in reverse]
-    return out
-
-
 def logs_for(db: Session, target_type: str, target_id: int) -> list[dict]:
     rows = db.execute(
         select(AuditLog, User.name).outerjoin(User, User.id == AuditLog.actor_id)
@@ -274,8 +339,14 @@ def list_cases(
 @router.get("/cases/{case_id}")
 def case_detail(case_id: int, request: Request, staff: User = Depends(get_staff_user), db: Session = Depends(get_db)) -> dict:
     c = staff_case(db, case_id)
+    # 실제 검수시간 측정 — 변호사가 검수 대기 사건을 처음 연 시각부터 잰다
+    if staff.is_lawyer and c.status == CaseStatus.LAWYER_REVIEW and c.review_started_at is None:
+        c.review_started_at = now()
     record(db, "case.view", actor_id=staff.id, target_type="case", target_id=c.id, request=request)
     db.commit()
+    parent = db.get(Case, c.parent_case_id) if c.parent_case_id else None
+    children = db.scalars(select(Case).where(Case.parent_case_id == c.id, Case.status != CaseStatus.CANCELED)).all()
+    notes = db.scalars(select(Notification).where(Notification.case_id == c.id).order_by(Notification.id.desc())).all()
     client = db.get(User, c.user_id)
     reviewer = db.get(User, c.reviewer_id) if c.reviewer_id else None
     product = get_product(c.service_slug)
@@ -293,6 +364,11 @@ def case_detail(case_id: int, request: Request, staff: User = Depends(get_staff_
         "payments": [{"id": p.id, "order_id": p.order_id, "amount": p.amount, "status": p.status, "method": p.method, "simulated": p.simulated,
                       "approved_at": p.approved_at, "canceled_at": p.canceled_at, "cancel_reason": p.cancel_reason} for p in c.payments],
         "conflicts": find_conflicts(db, c),
+        "consents": c.consents, "quote_note": c.quote_note, "review_seconds": c.review_seconds,
+        "parent": {"id": parent.id, "case_no": parent.case_no, "service_name": parent.service_name} if parent else None,
+        "children": [{"id": x.id, "case_no": x.case_no, "service_name": x.service_name, "status_label": x.status_label} for x in children],
+        "notifications": [{"id": n.id, "event": n.event, "channel": n.channel, "to": n.to, "status": n.status, "error": n.error, "created_at": n.created_at} for n in notes],
+        "is_quote": bool(get_product(c.service_slug) and get_product(c.service_slug).fee is None),
         "logs": logs_for(db, "case", c.id),
     }
 
@@ -301,7 +377,7 @@ def case_detail(case_id: int, request: Request, staff: User = Depends(get_staff_
 def lawyers(_: User = Depends(get_staff_user), db: Session = Depends(get_db)) -> list[dict]:
     rows = db.scalars(select(User).where(User.is_lawyer.is_(True), User.is_active.is_(True)).order_by(User.name)).all()
     load = dict(db.execute(select(Case.lawyer_id, func.count(Case.id)).where(Case.status.in_([s.value for s in OPEN_STATUSES])).group_by(Case.lawyer_id)).all())
-    return [{"id": u.id, "name": u.name, "open_cases": load.get(u.id, 0)} for u in rows]
+    return [{"id": u.id, "name": u.name, "open_cases": load.get(u.id, 0), "limit": settings.MAX_OPEN_CASES_PER_LAWYER} for u in rows]
 
 
 @router.post("/cases/{case_id}/accept")
@@ -314,13 +390,17 @@ def accept(case_id: int, payload: AcceptIn, request: Request, staff: User = Depe
     lawyer = db.get(User, payload.lawyer_id)
     if lawyer is None or not lawyer.is_lawyer or not lawyer.is_active:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="담당 변호사를 선택해 주세요.")
+    # 1인당 처리 한도(기획서 IX 원칙 3) — 검수가 형식화되지 않도록 진행 건수에 상한을 둔다
+    load = db.scalar(select(func.count(Case.id)).where(Case.lawyer_id == lawyer.id, Case.status.in_([s.value for s in OPEN_STATUSES]))) or 0
+    if load >= settings.MAX_OPEN_CASES_PER_LAWYER:
+        raise HTTPException(status.HTTP_409_CONFLICT, detail=f"{lawyer.name} 변호사는 진행 중 사건이 한도({settings.MAX_OPEN_CASES_PER_LAWYER}건)에 찼습니다. 다른 변호사에게 배정해 주세요.")
     product = get_product(c.service_slug)
     c.status, c.lawyer_id, c.accepted_at = CaseStatus.IN_PROGRESS, lawyer.id, now()
     c.due_at = add_business_days(c.accepted_at, product.turnaround_days if product else 5)
     record(db, "case.accept", actor_id=staff.id, target_type="case", target_id=c.id,
            detail={"lawyer_id": lawyer.id, "conflicts_shown": len(find_conflicts(db, c)), "due_at": c.due_at.isoformat()}, request=request)
     db.commit()
-    notify(db.get(User, c.user_id), "accepted", c)
+    notify(db, db.get(User, c.user_id), "accepted", c)
     return case_row(c, db)
 
 
@@ -340,7 +420,7 @@ def reject(case_id: int, payload: ReasonIn, request: Request, staff: User = Depe
     c.status, c.rejected_at, c.reject_reason = CaseStatus.REJECTED, now(), payload.reason
     record(db, "case.reject", actor_id=staff.id, target_type="case", target_id=c.id, reason=payload.reason, request=request)
     db.commit()
-    notify(db.get(User, c.user_id), "rejected", c)
+    notify(db, db.get(User, c.user_id), "rejected", c)
     return case_row(c, db)
 
 
@@ -388,10 +468,12 @@ def approve(case_id: int, payload: ApproveIn, request: Request, staff: User = De
     if not required.issubset(set(payload.checklist)):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="검수 체크리스트를 모두 확인해 주세요.")
     doc = max((f for f in c.files if f.kind == "document"), key=lambda f: f.id)
-    elapsed = int((now() - aware(c.submitted_at)).total_seconds()) if c.submitted_at else None
+    started = c.review_started_at or c.submitted_at
+    elapsed = int((now() - aware(started)).total_seconds()) if started else None
+    c.review_seconds = elapsed
     c.status, c.reviewer_id, c.approved_at, c.approved_file_id, c.review_checklist = CaseStatus.APPROVED, staff.id, now(), doc.id, sorted(required)
     record(db, "case.approve", actor_id=staff.id, target_type="case", target_id=c.id,
-           detail={"file_id": doc.id, "sha256": doc.sha256, "wait_seconds": elapsed}, request=request)
+           detail={"file_id": doc.id, "sha256": doc.sha256, "review_seconds": elapsed}, request=request)
     db.commit()
     return case_row(c, db)
 
@@ -403,7 +485,7 @@ def send_back(case_id: int, payload: ReasonIn, request: Request, staff: User = D
     require(c, CaseStatus.LAWYER_REVIEW)
     if not staff.is_lawyer:
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="검수 반려는 변호사만 할 수 있습니다.")
-    c.status = CaseStatus.IN_PROGRESS
+    c.status, c.review_started_at = CaseStatus.IN_PROGRESS, None
     record(db, "case.send_back", actor_id=staff.id, target_type="case", target_id=c.id, reason=payload.reason, request=request)
     db.commit()
     return case_row(c, db)
@@ -418,8 +500,38 @@ def deliver(case_id: int, payload: DeliverIn, request: Request, staff: User = De
     c.status, c.delivered_at, c.delivery_note = CaseStatus.DELIVERED, now(), payload.note
     record(db, "case.deliver", actor_id=staff.id, target_type="case", target_id=c.id, reason=payload.note, request=request)
     db.commit()
-    notify(db.get(User, c.user_id), "delivered", c)
+    notify(db, db.get(User, c.user_id), "delivered", c)
     return case_row(c, db)
+
+
+@router.post("/cases/{case_id}/quote")
+def send_quote(case_id: int, payload: QuoteIn, request: Request, staff: User = Depends(get_staff_user), db: Session = Depends(get_db)) -> dict:
+    """심화 사건(개별 견적) — 변호사가 금액과 안내를 정하면 결제 대기로 돌아가 고객이 결제한다. 결제 후 다시 수임 검토."""
+    c = staff_case(db, case_id)
+    require(c, CaseStatus.REVIEWING)
+    product = get_product(c.service_slug)
+    if not product or product.fee is not None or c.paid_at:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="개별 견적 사건에만 견적을 보낼 수 있습니다.")
+    if not staff.is_lawyer:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="견적은 변호사만 정할 수 있습니다.")
+    c.fee, c.vat = payload.fee, payload.fee // 10
+    c.total, c.costs, c.quote_note, c.status = c.fee + c.vat, [], payload.note, CaseStatus.PENDING_PAYMENT
+    record(db, "case.quote", actor_id=staff.id, target_type="case", target_id=c.id, reason=payload.note, detail={"fee": c.fee}, request=request)
+    db.commit()
+    notify(db, db.get(User, c.user_id), "quoted", c)
+    return case_row(c, db)
+
+
+@router.post("/cases/{case_id}/citations")
+def check_citations(case_id: int, payload: CitationIn, request: Request, staff: User = Depends(get_staff_user), db: Session = Depends(get_db)) -> dict:
+    """서면의 인용 부분을 붙여 넣으면 판례 번호·법령명의 실존 여부를 조회한다. 결과는 처리 기록에 남긴다."""
+    c = staff_case(db, case_id)
+    items = citations.check(payload.text)
+    record(db, "case.citations", actor_id=staff.id, target_type="case", target_id=c.id,
+           detail={"found": sum(i["status"] == "found" for i in items), "not_found": [i["ref"] for i in items if i["status"] == "not_found"],
+                   "unknown": sum(i["status"] == "unknown" for i in items)}, request=request)
+    db.commit()
+    return {"items": items, "api_configured": bool(settings.LAW_API_OC)}
 
 
 @router.post("/cases/{case_id}/notes")
@@ -428,6 +540,49 @@ def add_note(case_id: int, payload: NoteIn, request: Request, staff: User = Depe
     record(db, "case.note", actor_id=staff.id, target_type="case", target_id=c.id, reason=payload.text, request=request)
     db.commit()
     return {"status": "ok"}
+
+
+# ---------- 이해충돌 명단 ------------------------------------------------------
+
+
+@router.get("/conflict-list")
+def conflict_list(admin: User = Depends(get_admin_user), db: Session = Depends(get_db)) -> dict:
+    rows = db.scalars(select(ConflictParty).order_by(ConflictParty.id).limit(20)).all()
+    return {"count": db.scalar(select(func.count(ConflictParty.id))) or 0,
+            "updated_at": db.scalar(select(func.max(ConflictParty.created_at))),
+            "sample": [{"name": r.name, "role": r.role, "note": r.note} for r in rows]}
+
+
+@router.post("/conflict-list")
+def upload_conflict_list(request: Request, file: UploadFile = File(...), admin: User = Depends(get_admin_user), db: Session = Depends(get_db)) -> dict:
+    """법인 본체의 의뢰인·상대방 명단 CSV(열: 이름, 구분, 메모)로 명단을 통째로 교체한다."""
+    raw = file.file.read(5 * 1024 * 1024 + 1)
+    if len(raw) > 5 * 1024 * 1024:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="5MB 이하 CSV 만 올릴 수 있습니다.")
+    text = None
+    for enc in ("utf-8-sig", "cp949"):  # 엑셀에서 저장한 CSV 는 cp949 인 경우가 많다
+        try:
+            text = raw.decode(enc)
+            break
+        except UnicodeDecodeError:
+            continue
+    if text is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="CSV 인코딩을 읽지 못했습니다(UTF-8 또는 CP949).")
+    rows = []
+    for i, r in enumerate(csv.reader(io.StringIO(text))):
+        if not r or not r[0].strip() or (i == 0 and r[0].strip() in ("이름", "성명", "name")):
+            continue
+        key = name_key(r[0])
+        if key:
+            rows.append(ConflictParty(name=r[0].strip()[:100], key=key, role=(r[1].strip()[:30] if len(r) > 1 and r[1].strip() else None),
+                                      note=(r[2].strip() if len(r) > 2 and r[2].strip() else None), imported_by=admin.id))
+    if not rows:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="읽을 수 있는 이름이 없습니다. 첫 열에 이름을 넣어 주세요.")
+    db.query(ConflictParty).delete()
+    db.add_all(rows)
+    record(db, "conflict_list.replace", actor_id=admin.id, detail={"count": len(rows), "filename": file.filename}, request=request)
+    db.commit()
+    return {"count": len(rows)}
 
 
 # ---------- 감사 로그 ---------------------------------------------------------

@@ -123,6 +123,10 @@ export interface CaseDetail {
   costs: CostLine[];
   total: number;
   lawyer_name: string | null;
+  quote_note: string | null;
+  parent_case_id: number | null;
+  receipt_url: string | null;
+  refunded: boolean;
   reject_reason: string | null;
   delivery_note: string | null;
   created_at: string;

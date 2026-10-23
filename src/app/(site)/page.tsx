@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import JourneyTimeline from '@/components/JourneyTimeline';
+import PublicMetrics from '@/components/PublicMetrics';
 import Reveal from '@/components/Reveal';
 import SituationChips from '@/components/SituationChips';
 import { ServiceCard } from '@/components/ui';
@@ -71,6 +72,8 @@ export default function Home() {
           <span><b>온라인 완결</b>접수부터 진행 조회까지</span>
         </div>
       </div>
+
+      <PublicMetrics />
 
       <section className="band" id="journey">
         <div className="container">

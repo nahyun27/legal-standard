@@ -48,8 +48,14 @@ export default function MyAccount() {
 
   async function withdraw() {
     if (!confirm('회원 탈퇴하시겠습니까? 회원 정보가 삭제되며 되돌릴 수 없습니다.')) return;
-    leaving.current = true;
-    await api('/auth/me', { method: 'DELETE' });
+    try {
+      leaving.current = true;
+      await api('/auth/me', { method: 'DELETE' });
+    } catch (e) {
+      leaving.current = false;
+      alert((e as Error).message);  // 진행 중 사건이 있으면 서버가 막는다
+      return;
+    }
     setUser(null);
     router.replace('/');
   }

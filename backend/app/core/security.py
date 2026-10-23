@@ -5,9 +5,9 @@ from jose import JWTError, jwt
 
 from app.core.config import settings
 
-TokenType = Literal["access", "refresh"]
+TokenType = Literal["access", "refresh", "mfa"]
 
-__all__ = ["JWTError", "create_access_token", "create_refresh_token", "decode_token"]
+__all__ = ["JWTError", "create_access_token", "create_mfa_token", "create_refresh_token", "decode_token"]
 
 
 def _create_token(subject: int, token_type: TokenType, expires: timedelta, version: int) -> str:
@@ -22,6 +22,10 @@ def create_access_token(user_id: int, version: int) -> str:
 
 def create_refresh_token(user_id: int, version: int) -> str:
     return _create_token(user_id, "refresh", timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS), version)
+
+
+def create_mfa_token(user_id: int, version: int) -> str:
+    return _create_token(user_id, "mfa", timedelta(hours=settings.ADMIN_MFA_HOURS), version)
 
 
 def decode_token(token: str, expected_type: TokenType) -> dict[str, Any]:

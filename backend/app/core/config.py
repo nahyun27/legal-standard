@@ -47,6 +47,31 @@ class Settings(BaseSettings):
     COURT_SERVICE_UNIT_KRW: int = 5_500
     CERTIFIED_LETTER_POSTAGE_KRW: int = 5_000
 
+    # 운영 규칙
+    MAX_OPEN_CASES_PER_LAWYER: int = 40   # 기획서 IX "변호사 1인당 처리 한도" — 재무모델 월 180건 처리능력 기준의 진행 건수 상한
+    PENDING_REMIND_HOURS: int = 24        # 결제 대기 사건에 한 번 안내를 보내는 시점
+    PENDING_EXPIRE_DAYS: int = 7          # 이 기간이 지난 결제 대기 사건은 자동 취소
+    PUBLIC_METRICS_MIN_CASES: int = 30    # 실측 지표는 이 건수 이상 쌓였을 때만 공개(소수 표본으로 과장되지 않게)
+    # 결제 전 동의(청약철회 제한·수임 조건) 문안 버전. 문안을 바꾸면 올려서 누가 어느 버전에 동의했는지 남긴다.
+    CONSENT_VERSION: str = "2026-10-draft"
+
+    # 관리자 2단계 인증(TOTP). 운영 환경에서는 이 값과 무관하게 항상 켜진다.
+    ADMIN_MFA_REQUIRED: bool = False
+    ADMIN_MFA_HOURS: int = 12
+
+    # 알림 — 비어 있는 채널은 건너뛰고 기록만 남긴다
+    SMTP_HOST: str | None = None
+    SMTP_PORT: int = 587
+    SMTP_USER: str | None = None
+    SMTP_PASSWORD: str | None = None
+    SMTP_FROM: str | None = None
+    SOLAPI_API_KEY: str | None = None      # SMS(솔라피). 알림톡은 템플릿 심사 후 같은 업체로 전환
+    SOLAPI_API_SECRET: str | None = None
+    SMS_SENDER: str | None = None          # 사전 등록된 발신번호
+
+    # 국가법령정보센터 Open API 인증값(OC). 없으면 인용 확인은 "확인 불가"로 표시
+    LAW_API_OC: str | None = None
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=True, extra="ignore")
 
     @model_validator(mode="after")
@@ -70,6 +95,10 @@ class Settings(BaseSettings):
     @property
     def payment_simulated(self) -> bool:
         return not self.TOSS_SECRET_KEY
+
+    @property
+    def mfa_required(self) -> bool:
+        return self.ADMIN_MFA_REQUIRED or self.ENV == "production"
 
 
 @lru_cache

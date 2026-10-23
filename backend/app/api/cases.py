@@ -11,18 +11,30 @@ from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+import logging
+
 from app.core import storage, toss
 from app.core.audit import record
 from app.core.catalog import get_product
 from app.core.config import settings
+from app.core.conflict import name_key
 from app.core.database import get_db
 from app.core.deps import get_current_user, get_onboarded_user
 from app.core.fees import quote
 from app.core.notify import notify
-from app.core.timeutil import now
+from app.core.payments import mark_paid
+from app.core.timeutil import aware, business_days_between, now
 from app.models.case import Case, CaseFile, CaseStatus, Payment
 from app.models.user import User
-from app.schemas.case import ConfirmIn, IntakeIn
+from app.schemas.case import ConfirmIn, IntakeIn, PaymentStartIn
+
+logger = logging.getLogger("payments")
+
+# 결제 전 동의 문안(초안 — 법무법인 확정 필요). 문안을 바꾸면 settings.CONSENT_VERSION 을 올린다.
+CONSENT_ITEMS = {
+    "agree_engagement": "표준 업무범위와 수임 조건(포함·불포함 업무, 처리 기간, 실비 별도)을 확인했습니다.",
+    "agree_withdrawal": "결제 후 7일 이내 청약철회가 가능하나, 담당 변호사가 수임을 확정하고 업무를 시작한 뒤에는 전자상거래법 제17조 제2항에 따라 청약철회가 제한될 수 있음을 안내받았습니다. 수임이 확정되지 않으면 전액 환불됩니다.",
+}
 
 router = APIRouter(tags=["cases"])
 
@@ -51,7 +63,9 @@ def case_for_customer(c: Case, db: Session) -> dict:
         "status": c.status, "status_label": c.status_label,
         "opponent_name": c.opponent_name, "claim_amount": c.claim_amount, "intake": c.intake,
         "fee": c.fee, "vat": c.vat, "costs": c.costs, "total": c.total,
-        "lawyer_name": lawyer.name if lawyer else None,
+        "lawyer_name": lawyer.name if lawyer else None, "quote_note": c.quote_note, "parent_case_id": c.parent_case_id,
+        "receipt_url": next((p.receipt_url for p in c.payments if p.status == "done" and p.receipt_url), None),
+        "refunded": any(p.status == "canceled" for p in c.payments),
         "reject_reason": c.reject_reason, "delivery_note": c.delivery_note,
         "created_at": c.created_at, "paid_at": c.paid_at, "accepted_at": c.accepted_at,
         "approved_at": c.approved_at, "delivered_at": c.delivered_at, "rejected_at": c.rejected_at, "due_at": c.due_at,
@@ -88,6 +102,11 @@ def create_case(payload: IntakeIn, request: Request, user: User = Depends(get_on
     if product.needs_claim_amount and not payload.claim_amount:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="청구 금액을 입력해 주세요.")
 
+    if payload.parent_case_id is not None:
+        parent = db.get(Case, payload.parent_case_id)
+        if parent is None or parent.user_id != user.id:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="이전 사건을 찾을 수 없습니다.")
+
     q = quote(product, payload.claim_amount)
     # 같은 상품의 결제 대기 사건이 있으면 새로 만들지 않고 덮어쓴다(뒤로가기·재시도로 사건이 쌓이지 않게)
     c = db.scalar(select(Case).where(Case.user_id == user.id, Case.service_slug == product.slug, Case.status == CaseStatus.PENDING_PAYMENT))
@@ -96,6 +115,8 @@ def create_case(payload: IntakeIn, request: Request, user: User = Depends(get_on
         db.add(c)
     c.intake = {"client_name": payload.client_name, "phone": payload.phone, "facts": payload.facts, "answers": payload.answers}
     c.opponent_name = (payload.opponent_name or "").strip() or None
+    c.opponent_key = name_key(c.opponent_name)
+    c.parent_case_id = payload.parent_case_id
     c.claim_amount = payload.claim_amount
     c.fee, c.vat, c.costs, c.total = q.fee, q.vat, quote_dict(q)["costs"], q.total
     c.source = payload.source
@@ -138,11 +159,21 @@ def cancel_case(case_id: int, request: Request, user: User = Depends(get_current
 # ---------- 결제 -------------------------------------------------------------
 
 
+@router.get("/consents/payment")
+def payment_consents() -> dict:
+    return {"version": settings.CONSENT_VERSION, "items": CONSENT_ITEMS}
+
+
 @router.post("/cases/{case_id}/payment")
-def start_payment(case_id: int, user: User = Depends(get_onboarded_user), db: Session = Depends(get_db)) -> dict:
+def start_payment(case_id: int, payload: PaymentStartIn, request: Request, user: User = Depends(get_onboarded_user), db: Session = Depends(get_db)) -> dict:
     c = own_case(db, case_id, user)
     if c.status != CaseStatus.PENDING_PAYMENT:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="이미 결제했거나 결제할 수 없는 사건입니다.")
+    if c.total <= 0:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="결제 금액이 정해지지 않은 사건입니다.")
+    # 누가 언제 어느 버전의 안내에 동의했는지 남긴다(청약철회 제한 고지의 증빙)
+    c.consents = {"version": settings.CONSENT_VERSION, "agreed_at": now().isoformat(), "items": CONSENT_ITEMS,
+                  "ip": request.client.host if request.client else None}
     # 토스 orderId: 영문·숫자·-·_ 6~64자. 시도마다 새로 발급(같은 orderId 재사용 불가).
     p = Payment(case_id=c.id, order_id=f"LS-{c.id}-{secrets.token_hex(6)}", amount=c.total, simulated=settings.payment_simulated)
     db.add(p)
@@ -171,19 +202,76 @@ def confirm_payment(payload: ConfirmIn, request: Request, user: User = Depends(g
 
     if p.simulated:
         # 시뮬레이션은 결제를 만든 시점의 서버 설정으로만 정해진다 — 클라이언트가 켤 수 없다
-        p.payment_key, p.method, p.raw = f"SIMULATED-{p.order_id}", "시뮬레이션", None
+        mark_paid(db, p, payment_key=f"SIMULATED-{p.order_id}", data=None, via="confirm", actor_id=user.id)
     else:
         data = toss.confirm(payload.payment_key, p.order_id, p.amount)
         if data.get("status") != "DONE":
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="결제가 완료되지 않았습니다.")
-        p.payment_key, p.method, p.raw = payload.payment_key, data.get("method"), data
-
-    p.status, p.approved_at = "done", now()
-    c.status, c.paid_at = CaseStatus.REVIEWING, now()
-    record(db, "payment.confirm", actor_id=user.id, target_type="case", target_id=c.id, detail={"order_id": p.order_id, "amount": p.amount, "simulated": p.simulated}, request=request)
+        mark_paid(db, p, payment_key=payload.payment_key, data=data, via="confirm", actor_id=user.id)
     db.commit()
-    notify(user, "paid", c)
+    notify(db, user, "paid", c)
     return case_for_customer(c, db)
+
+
+@router.post("/payments/webhook")
+async def toss_webhook(request: Request, db: Session = Depends(get_db)) -> dict:
+    """토스 결제 상태 변경 웹훅. 결제창에서 결제는 됐는데 고객이 성공 페이지에 오기 전에 창을 닫으면 승인 API 가
+    호출되지 않는다 — 그 결제를 여기서(또는 app.cli reconcile-payments 대조 작업에서) 반영한다.
+    웹훅 본문은 위조될 수 있으므로 믿지 않고, orderId 로 토스에 직접 다시 조회한 결과만 반영한다."""
+    try:
+        body = await request.json()
+    except ValueError:
+        return {"status": "ignored"}
+    order_id = ((body or {}).get("data") or {}).get("orderId")
+    if settings.payment_simulated or not order_id:
+        return {"status": "ignored"}
+    p = db.scalar(select(Payment).where(Payment.order_id == order_id))
+    if p is None:
+        return {"status": "ignored"}
+    sync_payment(db, p, via="webhook")
+    return {"status": "ok"}
+
+
+def sync_payment(db: Session, p: Payment, *, via: str) -> str:
+    """토스의 실제 결제 상태로 맞춘다. 반환: paid | canceled | unchanged | mismatch"""
+    data = toss.get_by_order(p.order_id)
+    if not data:
+        return "unchanged"
+    st = data.get("status")
+    if st == "DONE" and p.status != "done":
+        try:
+            mark_paid(db, p, payment_key=data.get("paymentKey") or "", data=data, via=via, actor_id=None)
+        except ValueError as exc:
+            logger.error("payment mismatch order=%s: %s", p.order_id, exc)
+            record(db, "payment.mismatch", actor_id=None, target_type="case", target_id=p.case_id, reason=str(exc))
+            db.commit()
+            return "mismatch"
+        db.commit()
+        notify(db, db.get(User, p.case.user_id), "paid", p.case)
+        return "paid"
+    if st in ("CANCELED", "PARTIAL_CANCELED") and p.status == "done":
+        p.status, p.canceled_at, p.cancel_reason = "canceled", now(), f"결제사에서 취소됨({via})"
+        record(db, "payment.canceled_external", actor_id=None, target_type="case", target_id=p.case_id, detail={"order_id": p.order_id})
+        db.commit()
+        return "canceled"
+    return "unchanged"
+
+
+@router.get("/public/metrics")
+def public_metrics(db: Session = Depends(get_db)) -> dict:
+    """홈에 공개하는 실측 지표 — 처리 건수·평균 처리 영업일·납기 준수율. 사건 데이터에서 자동 집계하므로
+    근거 자료가 항상 있다(기획서 X-3 "실적 표시는 객관적 근거 보관"). 표본이 적으면 공개하지 않는다."""
+    done = db.scalars(select(Case).where(Case.status == CaseStatus.DELIVERED, Case.accepted_at.is_not(None))).all()
+    if len(done) < settings.PUBLIC_METRICS_MIN_CASES:
+        return {"available": False}
+    days = [business_days_between(c.accepted_at, c.delivered_at) for c in done if c.delivered_at]
+    on_time = [c for c in done if c.due_at and c.delivered_at and aware(c.delivered_at) <= aware(c.due_at)]
+    return {
+        "available": True, "delivered": len(done),
+        "avg_business_days": round(sum(days) / len(days), 1) if days else None,
+        "on_time_rate": round(len(on_time) / len(done) * 100) if done else None,
+        "as_of": now().isoformat(),
+    }
 
 
 # ---------- 파일 -------------------------------------------------------------

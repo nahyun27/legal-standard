@@ -661,3 +661,50 @@ details.faq summary:hover { color: var(--tag); }
 .role-row:last-of-type { border-bottom: 0; }
 .btn.danger { border-color: #b4271a; color: #b4271a; }
 .btn.danger:hover { background: #b4271a; color: #fff; }
+
+/* ============================================================
+   개선 묶음 — 결제 동의·결제수단, 2단계 인증, 사유 입력창, 인용 확인, 지표
+   ============================================================ */
+.pay-box { margin-top: 4px; }
+.pay-methods { display: flex; flex-wrap: wrap; gap: 6px; }
+.pay-methods button {
+  flex: 1 1 auto; min-width: 88px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff;
+  font-size: .82rem; font-weight: 700; color: var(--ink-soft); cursor: pointer; transition: border-color .15s, color .15s;
+}
+.pay-methods button.on { border-color: var(--ink); color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.consent-long { align-items: flex-start; font-size: .82rem; line-height: 1.55; }
+.consent-long input { margin-top: 2px; }
+
+.reason-dialog { margin: auto; border: 0; border-radius: 14px; padding: 0; width: min(480px, calc(100vw - 32px)); box-shadow: 0 24px 60px -20px rgba(14, 23, 48, .45); }
+.reason-dialog::backdrop { background: rgba(14, 23, 48, .45); }
+.reason-dialog form { padding: 24px; display: grid; gap: 10px; }
+.reason-dialog h2 { font-size: 1.15rem; margin: 0; }
+.reason-dialog textarea { min-height: 110px; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; resize: vertical; }
+
+.mfa-qr { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 6px 0 16px; }
+.mfa-qr img { border: 1px solid var(--line); border-radius: 10px; padding: 8px; background: #fff; }
+.mfa-qr small { color: var(--muted); font-size: .74rem; text-align: center; word-break: break-all; }
+.mfa-code { font-size: 1.5rem !important; letter-spacing: .4em; text-align: center; font-variant-numeric: tabular-nums; }
+
+.cite-box { display: grid; gap: 8px; }
+.cite-box textarea { min-height: 80px; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: .86rem; }
+.cite-box .btn { justify-self: start; }
+.cite-list { list-style: none; display: grid; gap: 6px; font-size: .84rem; }
+.cite-badge { display: inline-block; min-width: 42px; text-align: center; padding: 2px 6px; margin-right: 8px; border-radius: 4px; font-size: .7rem; font-weight: 800; }
+.c-found { background: var(--good-soft); color: var(--good); }
+.c-not_found { background: #fdecea; color: #b4271a; }
+.c-unknown { background: #fff4dc; color: #9a6400; }
+
+.kpis-goal { grid-template-columns: repeat(3, 1fr); margin-bottom: 0; }
+@media (max-width: 900px) { .kpis-goal { grid-template-columns: 1fr; } }
+.kpi.goal-ok { border-color: #9fd8bf; }
+.kpi.goal-ok b { color: var(--good); }
+.kpi.goal-miss { border-color: #f3c2bb; }
+.kpi.goal-miss b { color: #b4271a; }
+.next-row .next-cta { display: block; margin-top: 2px; font-size: .74rem; font-weight: 700; color: var(--ink-soft); }
+.quote-form .field input, .quote-form .field textarea { width: 100%; }
+
+.metrics-strip { background: var(--kraft); border-bottom: 1px solid var(--kraft-line); padding: 14px 0; }
+.metrics-strip .container { display: flex; flex-wrap: wrap; gap: 8px 28px; justify-content: center; align-items: baseline; font-size: .86rem; color: #6c6349; }
+.metrics-strip b { color: var(--tag); font-weight: 900; margin-right: 6px; font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.metrics-strip small { width: 100%; text-align: center; font-size: .72rem; color: var(--kraft-ink); }

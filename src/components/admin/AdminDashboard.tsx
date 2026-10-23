@@ -12,6 +12,7 @@ interface Stats {
   users: { total: number; onboarded: number; new_7d: number; marketing: number; by_provider: Record<string, number> };
   cases: { by_status: Record<string, number>; open: number; overdue: number; paid_today: number };
   revenue: { today: number; d7: number; total: number };
+  kpi: { avg_review_minutes: number | null; reviewed_30d: number; on_time_rate: number | null; delivered_30d: number; followup_rate: number | null; followups: number };
   status_labels: Record<string, string>;
 }
 
@@ -51,6 +52,15 @@ export default function AdminDashboard() {
         <div className="kpi"><small>회원</small><b>{s.users.total.toLocaleString()}</b><span>7일 신규 {s.users.new_7d} · 가입 완료 {s.users.onboarded}</span></div>
         <div className="kpi"><small>누적 매출(환불 제외)</small><b>{won(s.revenue.total)}</b><span>VAT·실비 포함</span></div>
       </div>
+
+      <section className="admin-card">
+        <h2>핵심 관리지표 <span className="sub">최근 30일 · 기획서 목표 대비</span></h2>
+        <div className="kpis kpis-goal">
+          <Goal label="건당 검수시간" value={s.kpi.avg_review_minutes} unit="분" goal="45분 이하" ok={s.kpi.avg_review_minutes !== null && s.kpi.avg_review_minutes <= 45} n={`검수 ${s.kpi.reviewed_30d}건`} />
+          <Goal label="납기 준수율" value={s.kpi.on_time_rate} unit="%" goal="95% 이상" ok={s.kpi.on_time_rate !== null && s.kpi.on_time_rate >= 95} n={`완료 ${s.kpi.delivered_30d}건`} />
+          <Goal label="다음 단계 전환율" value={s.kpi.followup_rate} unit="%" goal="25% 이상" ok={s.kpi.followup_rate !== null && s.kpi.followup_rate >= 25} n={`후속 결제 ${s.kpi.followups}건`} />
+        </div>
+      </section>
 
       <section className="admin-card">
         <h2>처리 대기</h2>
@@ -98,5 +108,15 @@ export default function AdminDashboard() {
         </section>
       )}
     </>
+  );
+}
+
+function Goal({ label, value, unit, goal, ok, n }: { label: string; value: number | null; unit: string; goal: string; ok: boolean; n: string }) {
+  return (
+    <div className={`kpi ${value === null ? '' : ok ? 'goal-ok' : 'goal-miss'}`}>
+      <small>{label}</small>
+      <b>{value === null ? '—' : `${value}${unit}`}</b>
+      <span>목표 {goal} · {n}</span>
+    </div>
   );
 }

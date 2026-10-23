@@ -5,10 +5,12 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { Paperclip, X } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
+import PaymentConsent from '@/components/PaymentConsent';
+import { questionsFor } from '@/data/intakeQuestions';
 import type { Service } from '@/data/types';
 import { api, fmtSize, upload, type CaseDetail, type Quote } from '@/lib/api';
 import { won } from '@/lib/format';
-import { startPayment } from '@/lib/payment';
+import { startPayment, type Consents, type PayMethod } from '@/lib/payment';
 
 /**
  * 구조화 온라인 문진 → 사건 접수 → 증거 업로드 → 결제 (사업기획서 V "판매": 접수·결제·문진·수령 온라인 일원화).
@@ -18,6 +20,7 @@ import { startPayment } from '@/lib/payment';
  * 금액은 서버 견적(/catalog/quote)만 보여주고, 결제도 서버가 사건에 고정한 금액으로만 한다.
  */
 const STEPS = ['당사자 정보', '사건 내용', '증거 자료', '총액 확인'] as const;
+const ANSWER_KEY = (k: string) => `q-${k}`;
 
 interface Draft {
   step: number;
@@ -26,13 +29,16 @@ interface Draft {
   opponent: string;
   amount: string;
   facts: string;
+  answers: Record<string, string>;
 }
 
-const EMPTY: Draft = { step: 0, clientName: '', phone: '', opponent: '', amount: '', facts: '' };
+const EMPTY: Draft = { step: 0, clientName: '', phone: '', opponent: '', amount: '', facts: '', answers: {} };
 const digits = (s: string) => s.replace(/\D/g, '');
 
-export default function IntakeForm({ service }: { service: Service }) {
-  const key = `intake:${service.slug}`;
+/** parentId: "다음 단계 이어서 신청"이면 이전 사건 id — 상대방·청구액·사실관계를 채워서 시작한다 */
+export default function IntakeForm({ service, parentId }: { service: Service; parentId?: number }) {
+  const key = `intake:${service.slug}${parentId ? `:from${parentId}` : ''}`;
+  const questions = questionsFor(service.slug);
   const router = useRouter();
   const { user, ready } = useAuth();
   const [d, setD] = useState<Draft>(EMPTY);
@@ -43,6 +49,9 @@ export default function IntakeForm({ service }: { service: Service }) {
   const [error, setError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const isQuote = service.price.kind === 'quote';
+  const [consents, setConsents] = useState<Consents>({ agree_engagement: false, agree_withdrawal: false });
+  const [method, setMethod] = useState<PayMethod>('card');
+  const [parentNo, setParentNo] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -56,6 +65,21 @@ export default function IntakeForm({ service }: { service: Service }) {
     if (!loaded) return;
     try { sessionStorage.setItem(key, JSON.stringify(d)); } catch {}
   }, [d, key, loaded]);
+
+  // 이전 사건에서 이어서 신청 — 비어 있는 칸만 이전 사건 정보로 채운다(문진 재입력 없이 다음 단계로)
+  useEffect(() => {
+    if (!loaded || !parentId || !user) return;
+    api<CaseDetail>(`/cases/${parentId}`).then((p) => {
+      setParentNo(p.case_no);
+      setD((cur) => ({
+        ...cur,
+        opponent: cur.opponent || p.opponent_name || '',
+        amount: cur.amount || (p.claim_amount ? p.claim_amount.toLocaleString('ko-KR') : ''),
+        facts: cur.facts || `[${p.case_no} ${p.service_name}에서 이어서]\n${p.intake.facts ?? ''}`,
+        answers: { ...(p.intake.answers ?? {}), ...cur.answers },
+      }));
+    }).catch(() => {});
+  }, [loaded, parentId, user]);
 
   // 로그인돼 있으면 가입 때 받은 이름·연락처를 채워 준다(비어 있을 때만)
   useEffect(() => {
@@ -76,7 +100,7 @@ export default function IntakeForm({ service }: { service: Service }) {
   const set = (k: keyof Draft) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setD({ ...d, [k]: k === 'amount' ? (digits(e.target.value) ? Number(digits(e.target.value)).toLocaleString('ko-KR') : '') : e.target.value });
   const go = (s: number) => { setError(null); setD({ ...d, step: s }); };
-  const here = `/intake/${service.slug}`;
+  const here = `/intake/${service.slug}${parentId ? `?from=${parentId}` : ''}`;
 
   function addFiles(list: FileList | null) {
     if (!list) return;
@@ -99,6 +123,9 @@ export default function IntakeForm({ service }: { service: Service }) {
           opponent_name: d.opponent || null,
           claim_amount: digits(d.amount) ? Number(digits(d.amount)) : null,
           facts: d.facts,
+          // 질문 라벨로 저장 — 관리자 검수 화면에 그대로 보인다
+          answers: Object.fromEntries(questions.filter((q) => d.answers[q.key]).map((q) => [q.label, d.answers[q.key]])),
+          parent_case_id: parentId ?? null,
           source: document.referrer ? new URL(document.referrer).hostname.slice(0, 100) : null,
         }),
       });
@@ -112,7 +139,7 @@ export default function IntakeForm({ service }: { service: Service }) {
         return;
       }
       setBusy('결제창을 여는 중…');
-      const result = await startPayment(c.id);
+      const result = await startPayment(c.id, consents, method);
       if (result === 'canceled') { setBusy(null); return; }
       if (result !== 'redirected') {
         sessionStorage.removeItem(key);
@@ -127,14 +154,17 @@ export default function IntakeForm({ service }: { service: Service }) {
   const step = d.step;
   const canNext =
     step === 0 ? d.clientName.trim().length >= 2 && digits(d.phone).length >= 10
-    : step === 1 ? (!service.claimRequired || !!digits(d.amount)) && d.facts.trim().length >= 10
+    : step === 1 ? (!service.claimRequired || !!digits(d.amount)) && d.facts.trim().length >= 10 && questions.every((q) => !q.required || !!d.answers[q.key]?.trim())
     : true;
+  const consentOk = isQuote || (consents.agree_engagement && consents.agree_withdrawal);
+  const setAnswer = (k: string, v: string) => setD({ ...d, answers: { ...d.answers, [k]: v } });
 
   return (
     <div className="card">
       <div className="sub" style={{ marginBottom: 8 }}>{step + 1} / {STEPS.length} · {STEPS[step]}</div>
       <div className="progress"><span style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} /></div>
 
+      {parentNo && <p className="notice" style={{ marginBottom: 16 }}>{parentNo} 사건의 정보로 채웠습니다. 바뀐 내용만 고쳐 주세요.</p>}
       <form onSubmit={(e) => { e.preventDefault(); if (step < STEPS.length - 1 && canNext) go(step + 1); }}>
         {step === 0 && (
           <>
@@ -158,6 +188,28 @@ export default function IntakeForm({ service }: { service: Service }) {
               <textarea id="fa" value={d.facts} onChange={set('facts')} placeholder="언제, 누구와, 무슨 일이 있었는지 날짜순으로 적어 주세요." maxLength={10000} />
               <span className="hint">{d.facts.length.toLocaleString()} / 10,000자</span>
             </div>
+            {questions.map((q) => {
+              const id = ANSWER_KEY(q.key);
+              const v = d.answers[q.key] ?? '';
+              return (
+                <div key={q.key} className="field">
+                  <label htmlFor={id}>{q.label}{q.required ? '' : ' (선택)'}</label>
+                  {q.type === 'select' ? (
+                    <select id={id} value={v} onChange={(e) => setAnswer(q.key, e.target.value)} required={q.required}>
+                      <option value="">선택하세요</option>
+                      {q.options!.map((o) => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                  ) : q.type === 'textarea' ? (
+                    <textarea id={id} value={v} onChange={(e) => setAnswer(q.key, e.target.value)} placeholder={q.placeholder} maxLength={5000} style={{ minHeight: 80 }} />
+                  ) : (
+                    <input id={id} type={q.type === 'number' ? 'text' : q.type} inputMode={q.type === 'number' ? 'numeric' : undefined}
+                      value={v} placeholder={q.placeholder} maxLength={500} required={q.required}
+                      onChange={(e) => setAnswer(q.key, q.type === 'number' ? (digits(e.target.value) ? Number(digits(e.target.value)).toLocaleString('ko-KR') : '') : e.target.value)} />
+                  )}
+                  {q.hint && <span className="hint">{q.hint}</span>}
+                </div>
+              );
+            })}
           </>
         )}
         {step === 2 && (
@@ -179,6 +231,13 @@ export default function IntakeForm({ service }: { service: Service }) {
               </ul>
             )}
             <span className="hint">지금 없어도 접수 후 내 사건 페이지에서 추가할 수 있습니다.</span>
+            {ready && !user && (
+              // 파일은 브라우저 보안상 로그인하러 다녀오면 다시 골라야 한다 — 미리 로그인을 권한다
+              <p className="banner banner-warn" style={{ marginTop: 12 }}>
+                결제 전에 로그인이 필요합니다. 지금 로그인하면 고른 파일을 다시 선택하지 않아도 됩니다.{' '}
+                <Link href={`/login?next=${encodeURIComponent(here)}`} style={{ textDecoration: 'underline', fontWeight: 700 }}>먼저 로그인하기</Link>
+              </p>
+            )}
           </div>
         )}
         {step === 3 && (
@@ -201,6 +260,9 @@ export default function IntakeForm({ service }: { service: Service }) {
             </div>
           )
         )}
+        {step === 3 && !isQuote && user?.is_onboarded && (
+          <PaymentConsent value={consents} onChange={setConsents} method={method} onMethod={setMethod} />
+        )}
 
         {error && <p className="form-error" role="alert">{error}</p>}
         {busy && <p className="sub" role="status" style={{ marginBottom: 10 }}>{busy}</p>}
@@ -216,7 +278,7 @@ export default function IntakeForm({ service }: { service: Service }) {
           ) : !user.is_onboarded ? (
             <Link href={`/signup?next=${encodeURIComponent(here)}`} className="btn btn-primary">가입 마무리하고 {isQuote ? '상담 요청하기' : '결제하기'}</Link>
           ) : (
-            <button type="button" className="btn btn-primary" disabled={!!busy || (!isQuote && !quote)} onClick={submit}>
+            <button type="button" className="btn btn-primary" disabled={!!busy || (!isQuote && !quote) || !consentOk} onClick={submit}>
               {isQuote ? '상담 요청하기' : quote ? `${won(quote.total)} 결제하기` : '결제하기'}
             </button>
           )}

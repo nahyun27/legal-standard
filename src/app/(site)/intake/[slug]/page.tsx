@@ -9,8 +9,9 @@ export function generateStaticParams() {
   return SERVICES.filter((s) => s.stage === 'pilot').map((s) => ({ slug: s.slug }));
 }
 
-export default async function IntakePage({ params }: PageProps<'/intake/[slug]'>) {
+export default async function IntakePage({ params, searchParams }: PageProps<'/intake/[slug]'>) {
   const s = getService((await params).slug);
+  const from = Number((await searchParams).from);
   if (!s || s.stage !== 'pilot') notFound();
 
   return (
@@ -22,7 +23,7 @@ export default async function IntakePage({ params }: PageProps<'/intake/[slug]'>
           <p className="lead" style={{ marginBottom: 28 }}>
             입력하신 내용은 담당 변호사의 수임 검토에 쓰입니다. 표준 업무범위로 처리하기 어려운 사건이면 결제 전에 안내해 드립니다.
           </p>
-          <IntakeForm service={s} />
+          <IntakeForm service={s} parentId={Number.isInteger(from) && from > 0 ? from : undefined} />
         </div>
         <aside className="card">
           <div className="sub">{serviceTitle(s)}</div>

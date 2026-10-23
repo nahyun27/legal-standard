@@ -15,8 +15,11 @@ def new_case(client, **over):
     return r.json()
 
 
+CONSENT = {"agree_engagement": True, "agree_withdrawal": True}
+
+
 def pay(client, case_id, amount=None):
-    start = client.post(f"/api/v1/cases/{case_id}/payment").json()
+    start = client.post(f"/api/v1/cases/{case_id}/payment", json=CONSENT).json()
     assert start["simulated"] is True
     return client.post("/api/v1/payments/confirm", json={"order_id": start["order_id"], "payment_key": "x", "amount": amount or start["amount"]})
 
@@ -65,7 +68,7 @@ def test_cannot_see_others_case(client, db):
     c = new_case(client)
     make_user(client, db, "고객B")
     assert client.get(f"/api/v1/cases/{c['id']}").status_code == 404
-    assert client.post(f"/api/v1/cases/{c['id']}/payment").status_code == 404
+    assert client.post(f"/api/v1/cases/{c['id']}/payment", json=CONSENT).status_code == 404
 
 
 def test_cancel_only_before_payment(client, db):
