@@ -20,7 +20,7 @@
   --warn: #a66a0a;  --warn-soft: #fbf0db;
 
   --sans: 'Pretendard Variable', Pretendard, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
-  --serif: var(--font-serif), 'Apple SD Gothic Neo', serif; /* 마루 부리 — layout.tsx 의 next/font/local */
+  --serif: var(--font-serif), 'Apple SD Gothic Neo', serif; /* 함렛 — layout.tsx 의 next/font/google */
   --shadow-sm: 0 1px 2px rgba(20, 33, 61, .05), 0 2px 8px -4px rgba(20, 33, 61, .08);
   --shadow-md: 0 2px 4px rgba(20, 33, 61, .04), 0 12px 28px -14px rgba(20, 33, 61, .18);
   --shadow-lg: 0 4px 10px rgba(20, 33, 61, .05), 0 28px 60px -24px rgba(20, 33, 61, .28);
@@ -45,7 +45,7 @@ svg { flex-shrink: 0; }
 :focus-visible { outline: 3px solid var(--tag); outline-offset: 2px; border-radius: 4px; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
 
-/* 제목 체계: h1·h2 = 마루 부리(신뢰·격식), h3 이하 = 프리텐다드(읽기 쉬움). 큰 제목일수록 자간을 좁힌다. */
+/* 제목 체계: h1·h2 = 함렛(신뢰·격식), h3 이하 = 프리텐다드(읽기 쉬움). 큰 제목일수록 자간을 좁힌다. */
 h1, h2, h3 { line-height: 1.3; color: inherit; }
 h1 { font-family: var(--serif); font-weight: 700; font-size: clamp(2rem, 4.6vw, 3.1rem); letter-spacing: -0.035em; line-height: 1.24; white-space: pre-line; word-break: keep-all; }
 h1 em, h2 em { font-style: normal; color: var(--tag); }

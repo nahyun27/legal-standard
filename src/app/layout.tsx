@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import localFont from 'next/font/local';
+import { Hahmlet } from 'next/font/google';
 // 본문 폰트(프리텐다드)는 npm 패키지에서 같은 주소로 제공한다 — 외부 CDN 스타일시트는 화면 그리기를 막아
 // VPN·느린 망에서 첫 화면이 수 초 멈췄다(2026-10, 실측 2.1초).
 import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
@@ -9,15 +9,13 @@ import { ALLOW_INDEXING, NOINDEX, SITE_NAME, SITE_URL } from '@/lib/seo';
 import { FIRM } from '@/lib/site';
 import './globals.css';
 
-// 제목 폰트: 마루 부리(네이버, OFL — 재배포 허용). 제목에만 쓰는 600·700 두 굵기만 둔다.
-const maruBuri = localFont({
-  src: [
-    { path: './fonts/MaruBuri-SemiBold.woff2', weight: '600', style: 'normal' },
-    { path: './fonts/MaruBuri-Bold.woff2', weight: '700', style: 'normal' },
-  ],
+// 제목 폰트: 함렛(Hahmlet, OFL). next/font/google 은 빌드할 때 파일을 받아 같은 주소로 제공한다 — 외부 요청 없음.
+// 가변 폰트 하나로 제목의 600·700 을 모두 쓴다. 한글은 글자 범위별로 잘린 파일이라 화면에 나온 글자 조각만 받는다.
+const hahmlet = Hahmlet({
+  subsets: ['latin'],
   variable: '--font-serif',
   display: 'swap',
-  preload: false, // 한글 전체 글리프라 굵기당 450KB — 미리 받지 않고 제목이 그려질 때 받는다(그동안 대체 글꼴)
+  preload: false, // 한글 조각은 미리 받을 수 없다(subsets 에 korean 이 없음) — 제목이 그려질 때 받는다
   fallback: ['Apple SD Gothic Neo', 'serif'],
 });
 
@@ -39,7 +37,7 @@ export const viewport: Viewport = { themeColor: '#14213d' };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="ko" className={maruBuri.variable} data-scroll-behavior="smooth" suppressHydrationWarning>
+    <html lang="ko" className={hahmlet.variable} data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>
       </head>
       <body>

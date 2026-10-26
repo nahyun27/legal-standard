@@ -1,0 +1,16 @@
+# /etc/systemd/system/legalstandard-frontend.service
+[Unit]
+Description=Legal Standard frontend (Next.js)
+After=network.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/legal-standard
+Environment=NODE_ENV=production
+# .env.production 의 NEXT_PUBLIC_* 는 빌드할 때 고정된다 — 값을 바꾸면 npm run build 부터 다시
+ExecStart=/usr/bin/npm run start -- -p 3002 -H 127.0.0.1
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
