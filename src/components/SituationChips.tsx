@@ -6,7 +6,7 @@ const SITUATIONS = [
   { label: '빌려준 돈을 못 받았어요', href: '/journeys/money' },
   { label: '사기·명예훼손으로 고소하고 싶어요', href: '/journeys/criminal' },
   { label: '보증금을 돌려받지 못했어요', href: '/journeys/lease' },
-  { label: '직접 쓴 서면을 검토받고 싶어요', href: '/services/draft-review' },
+  { label: '계약서에 서명하기 전에 확인하고 싶어요', href: '/services/contract-review' },
 ];
 
 export default function SituationChips() {

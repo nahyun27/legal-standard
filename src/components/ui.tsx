@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import { Check, ChevronRight, Minus, ShieldCheck } from 'lucide-react';
-import type { Service } from '@/data/types';
-import { STAGE_LABEL, TIER_LABEL, serviceTitle } from '@/data/services';
-import { priceLabel } from '@/lib/format';
+import type { Service, TrackKind } from '@/data/types';
+import { AREA_LABEL, STAGE_LABEL } from '@/data/services';
+import { priceText } from '@/lib/format';
 
 export interface Crumb { label: string; href?: string }
 
@@ -68,21 +68,64 @@ export function StatChips({ items }: { items: { label: string; value: string }[]
   );
 }
 
-/** 정찰가 표기. 숫자는 정찰 레드, "원·VAT 별도"는 작게 — 프로토타입 .pr / .pr small */
-export function Price({ service, size, note, compact }: { service: Service; size?: 'sm'; note?: string; compact?: boolean }) {
-  // compact: 범위형을 "최솟값원~"으로 줄인다(진열 카드 폭에 맞춤, 프로토타입 "1,100,000원~")
-  const p = compact && service.price.kind === 'range' ? { kind: 'from' as const, amount: service.price.min } : service.price;
-  const priced = p.kind !== 'quote' && p.kind !== 'tbd';
-  // 숫자만 크게, "원"부터는 작게(프로토타입 "190,000<small>원</small>"). 범위형은 "1,100,000~2,200,000원"
-  const num =
-    p.kind === 'fixed' || p.kind === 'from' ? p.amount.toLocaleString('ko-KR')
-    : p.kind === 'range' ? `${p.min.toLocaleString('ko-KR')}~${p.max.toLocaleString('ko-KR')}`
-    : priceLabel(p);
+const num = (n: number) => n.toLocaleString('ko-KR');
+
+/**
+ * 상품 가격 블록(시안 v5 카드의 .pricing / .bands / .stages). 두 방식 가격은 항상 함께 보여 준다(두 가격 동시 공개).
+ * focus: 강조할 방식 — 홈 히어로나 가격 보기 스위치에서 고른 쪽을 진하게, 다른 쪽을 흐리게 한다.
+ */
+export function PriceRows({ service, focus }: { service: Service; focus?: TrackKind }) {
+  if (service.tracks?.length) {
+    return (
+      <div className="prows">
+        {service.tracks.map((t) => (
+          <div key={t.kind} className={`prow prow-${t.kind}${focus ? (focus === t.kind ? ' is-focus' : ' is-dim') : ''}`}>
+            <span className="who">
+              {t.label}
+              {t.retainer && <span className="retainer">수임약정</span>}
+              {t.note && <i>{t.note}</i>}
+            </span>
+            <span className="pr">{num(t.amount)}<small>원{t.per ? `/${t.per}` : ''}</small></span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (service.bands?.length) {
+    return (
+      <div className="pbands">
+        {service.bands.map((b) => (
+          <div key={b.label}><span>{b.label}</span><b>{num(b.amount)}<small>원</small></b></div>
+        ))}
+      </div>
+    );
+  }
+  if (service.ladder?.length) {
+    return (
+      <div className="prows">
+        {service.ladder.map((r) => (
+          <div key={r.label} className="prow">
+            <span className="who">{r.label}{r.note && <i>{r.note}</i>}</span>
+            <span className="pr">{num(r.amount)}<small>원</small></span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return <span className="price price-sm">{priceText(service)}</span>;
+}
+
+/** 기일 출석처럼 횟수만큼 더해지는 요금 한 줄 */
+export function AddonLines({ service }: { service: Service }) {
+  if (!service.addons?.length) return null;
   return (
-    <span className={`price${size === 'sm' ? ' price-sm' : ''}`}>
-      {num}
-      {priced && <span className="vat">원{p.kind === 'from' ? '~' : ''}{note ?? ' (VAT 별도)'}</span>}
-    </span>
+    <>
+      {service.addons.map((a) => (
+        <p key={a.label} className="addon">
+          + <b>{a.label}</b> ({a.per}) · {a.options.map((o) => `${o.label} ${num(o.amount)}원`).join(' / ')}
+        </p>
+      ))}
+    </>
   );
 }
 
@@ -94,28 +137,26 @@ export function StageBadge({ service }: { service: Pick<Service, 'stage'> }) {
   );
 }
 
-/** 진열대 상품 카드(프로토타입 .shelf .card). title·priceNote 는 홈에서 고소장 2단을 한 카드로 묶을 때 쓴다. */
-export function ServiceCard({ service, title, priceNote }: { service: Service; title?: string; priceNote?: string }) {
-  const highlights = service.highlights ?? service.includes.slice(0, 3);
+/** 진열대 상품 카드(시안 v5 .card) — 이름, 쓰임, 방식별 가격, 추가 요금, 칩 */
+export function ServiceCard({ service, focus }: { service: Service; focus?: TrackKind }) {
   return (
     <Link href={`/services/${service.slug}`} className="card service-card">
       {service.tag && <span className="mini-tag">{service.tag}</span>}
       {service.stage !== 'pilot' && <span className="upcoming-label">{STAGE_LABEL[service.stage]}</span>}
-      <h3>{title ?? serviceTitle(service)}</h3>
+      <h3>{service.name}{service.unit && <small className="unit">{service.unit}</small>}</h3>
       <p className="use">{service.summary}</p>
-      <Price service={service} note={priceNote ?? ''} compact />
-      <ul className="inc">
-        {highlights.map((h) => <li key={h}>{h}</li>)}
-      </ul>
+      <PriceRows service={service} focus={focus} />
+      <AddonLines service={service} />
+      {service.chips && <div className="card-chips">{service.chips.map((c) => <span key={c}>{c}</span>)}</div>}
       <span className="card-more">자세히 보기 <ChevronRight size={14} /></span>
     </Link>
   );
 }
 
-export function TierBadges({ service }: { service: Service }) {
+export function AreaBadges({ service }: { service: Service }) {
   return (
     <div className="badges">
-      <span className="badge badge-kraft">{TIER_LABEL[service.tier]}</span>
+      {service.area !== 'consult' && <span className="badge badge-kraft">{AREA_LABEL[service.area]}</span>}
       <StageBadge service={service} />
     </div>
   );

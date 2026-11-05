@@ -1,6 +1,6 @@
 import type { Journey } from '@/data/types';
-import { getService, serviceTitle } from '@/data/services';
-import { priceLabel } from '@/lib/format';
+import { getService, lowestAmount, serviceTitle } from '@/data/services';
+import { won } from '@/lib/format';
 
 /**
  * 여정 가로 로드맵 — 단계를 선으로 잇고, 화면에 들어오면 선이 왼쪽부터 그어진다(Reveal 안에서 .in 이 붙을 때).
@@ -17,7 +17,7 @@ export default function JourneyRoadmap({ journey }: { journey: Journey }) {
             <span className="rm-node">{i + 1}</span>
             <span className="rm-when">{s.trigger ?? '시작'}</span>
             <b className="rm-name">{serviceTitle(s.service)}</b>
-            <span className="rm-price">{i > 0 && s.service.price.kind !== 'tbd' ? '+' : ''}{priceLabel(s.service.price)}</span>
+            <span className="rm-price">{i > 0 ? '+' : ''}{won(lowestAmount(s.service) ?? 0)}~</span>
           </li>
         );
       })}

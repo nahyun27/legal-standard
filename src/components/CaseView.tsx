@@ -9,7 +9,7 @@ import PaymentConsent from '@/components/PaymentConsent';
 import { PageHero } from '@/components/ui';
 import { getService, serviceTitle } from '@/data/services';
 import { ApiError, api, fileUrl, fmtDate, fmtSize, upload, type CaseDetail, type CaseStatus } from '@/lib/api';
-import { priceLabel, won } from '@/lib/format';
+import { priceText, won } from '@/lib/format';
 import { startPayment, type Consents, type PayMethod } from '@/lib/payment';
 
 // 고객에게 보여주는 진행 단계. 내부 상태(검수 대기·발송 준비 등)는 고객 눈높이의 5단계로 묶는다.
@@ -205,9 +205,9 @@ export default function CaseView({ id, justPaid }: { id: number; justPaid: boole
               <p className="sub" style={{ marginBottom: 10 }}>필요해지면 같은 정찰가로 이어서 신청할 수 있습니다.</p>
               {nexts.map((n) => (
                 // 접수 가능한 상품이면 이 사건 정보로 채운 문진으로 바로 — 아니면 상품 안내로
-                <Link key={n.slug} href={n.s.stage === 'pilot' ? `/intake/${n.slug}?from=${c.id}` : `/services/${n.slug}`} className="next-row">
+                <Link key={n.slug} href={n.s.stage === 'pilot' ? `/intake/${n.slug}?from=${c.id}${c.track ? `&track=${c.track}` : ''}` : `/services/${n.slug}`} className="next-row">
                   <small>{n.when}</small>
-                  <span><b>{serviceTitle(n.s)}</b><em>{priceLabel(n.s.price)}</em></span>
+                  <span><b>{serviceTitle(n.s)}</b><em>{priceText(n.s, c.track ?? undefined)}</em></span>
                   <small className="next-cta">{n.s.stage === 'pilot' ? '이 사건 정보로 이어서 신청 →' : '오픈 예정 · 상품 안내 보기 →'}</small>
                 </Link>
               ))}

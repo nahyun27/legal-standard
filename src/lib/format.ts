@@ -1,45 +1,19 @@
-import type { Price } from '@/data/types';
+import type { Service, TrackKind } from '@/data/types';
+import { lowestAmount, trackOf } from '@/data/services';
 
 export const won = (n: number) => `${n.toLocaleString('ko-KR')}원`;
 
-/** 가격 한 줄 표기. VAT 별도 여부는 호출하는 쪽에서 따로 표시한다(총액 화면에서 항목별로 보여주므로). */
-export function priceLabel(p: Price): string {
-  switch (p.kind) {
-    case 'fixed':
-      return won(p.amount);
-    case 'from':
-      return `${won(p.amount)}~`;
-    case 'range':
-      return `${won(p.min)}~${won(p.max)}`;
-    case 'quote':
-      return '개별 견적';
-    case 'tbd':
-      return '가격 확정 예정';
+/**
+ * 상품 가격 한 줄 표기(VAT 별도 표시는 호출하는 쪽에서). 방식을 주면 그 방식 가격,
+ * 안 주면 두 방식을 "직접 55,000원 / 변호사 명의 450,000원"처럼 함께 보여 준다.
+ */
+export function priceText(s: Service, kind?: TrackKind): string {
+  if (s.tracks?.length) {
+    const one = trackOf(s, kind) ?? (s.tracks.length === 1 ? s.tracks[0] : undefined);
+    if (one) return `${won(one.amount)}${one.per ? `/${one.per}` : ''}`;
+    return s.tracks.map((t) => `${t.kind === 'self' ? '직접' : '변호사 명의'} ${won(t.amount)}`).join(' / ');
   }
-}
-
-/** 여정 총비용 계산에 쓰는 상한값. 범위형은 최댓값, 견적·미정은 계산에서 뺀다(null). */
-export function priceUpper(p: Price): number | null {
-  switch (p.kind) {
-    case 'fixed':
-    case 'from':
-      return p.amount;
-    case 'range':
-      return p.max;
-    default:
-      return null;
-  }
-}
-
-/** 여정 총비용의 하한값. 범위형은 최솟값, 견적·미정은 null. */
-export function priceLower(p: Price): number | null {
-  switch (p.kind) {
-    case 'fixed':
-    case 'from':
-      return p.amount;
-    case 'range':
-      return p.min;
-    default:
-      return null;
-  }
+  const low = lowestAmount(s);
+  if (low !== null) return `${won(low)}~`;
+  return s.price?.kind === 'quote' ? '개별 견적' : '가격 확정 예정';
 }

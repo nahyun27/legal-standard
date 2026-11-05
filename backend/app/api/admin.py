@@ -278,7 +278,7 @@ def case_row(c: Case, db: Session) -> dict:
     client = db.get(User, c.user_id)
     lawyer = db.get(User, c.lawyer_id) if c.lawyer_id else None
     return {
-        "id": c.id, "case_no": c.case_no, "service_slug": c.service_slug, "service_name": c.service_name,
+        "id": c.id, "case_no": c.case_no, "service_slug": c.service_slug, "service_name": c.service_name, "track": c.track,
         "status": c.status, "status_label": c.status_label, "client_name": (c.intake or {}).get("client_name") or (client.name if client else None),
         "opponent_name": c.opponent_name, "total": c.total, "lawyer_name": lawyer.name if lawyer else None,
         "created_at": c.created_at, "paid_at": c.paid_at, "due_at": c.due_at,
@@ -356,7 +356,7 @@ def case_detail(case_id: int, request: Request, staff: User = Depends(get_staff_
         "client": {"id": client.id, "name": client.name, "phone": client.phone, "email": client.email} if client else None,
         "lawyer_id": c.lawyer_id, "reviewer_name": reviewer.name if reviewer else None,
         "approved_file_id": c.approved_file_id, "review_checklist": c.review_checklist,
-        "checklist": list(product.checklist) if product else [],
+        "checklist": list(product.checklist_for(c.track)) if product else [],
         "reject_reason": c.reject_reason, "delivery_note": c.delivery_note,
         "accepted_at": c.accepted_at, "submitted_at": c.submitted_at, "approved_at": c.approved_at,
         "delivered_at": c.delivered_at, "rejected_at": c.rejected_at,
@@ -368,7 +368,7 @@ def case_detail(case_id: int, request: Request, staff: User = Depends(get_staff_
         "parent": {"id": parent.id, "case_no": parent.case_no, "service_name": parent.service_name} if parent else None,
         "children": [{"id": x.id, "case_no": x.case_no, "service_name": x.service_name, "status_label": x.status_label} for x in children],
         "notifications": [{"id": n.id, "event": n.event, "channel": n.channel, "to": n.to, "status": n.status, "error": n.error, "created_at": n.created_at} for n in notes],
-        "is_quote": bool(get_product(c.service_slug) and get_product(c.service_slug).fee is None),
+        "is_quote": bool(product and product.is_quote),
         "logs": logs_for(db, "case", c.id),
     }
 
@@ -464,7 +464,7 @@ def approve(case_id: int, payload: ApproveIn, request: Request, staff: User = De
     if not staff.is_lawyer:
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="검수 완료는 변호사만 할 수 있습니다.")
     product = get_product(c.service_slug)
-    required = set(product.checklist if product else ())
+    required = set(product.checklist_for(c.track) if product else ())
     if not required.issubset(set(payload.checklist)):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="검수 체크리스트를 모두 확인해 주세요.")
     doc = max((f for f in c.files if f.kind == "document"), key=lambda f: f.id)
@@ -510,7 +510,7 @@ def send_quote(case_id: int, payload: QuoteIn, request: Request, staff: User = D
     c = staff_case(db, case_id)
     require(c, CaseStatus.REVIEWING)
     product = get_product(c.service_slug)
-    if not product or product.fee is not None or c.paid_at:
+    if not product or not product.is_quote or c.paid_at:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="개별 견적 사건에만 견적을 보낼 수 있습니다.")
     if not staff.is_lawyer:
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="견적은 변호사만 정할 수 있습니다.")

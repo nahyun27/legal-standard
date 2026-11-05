@@ -50,20 +50,22 @@ class Quote:
         return self.fee + self.vat + self.costs_total
 
 
-def quote(product: Product, claim_amount: int | None) -> Quote:
-    fee = product.fee or 0
+def quote(product: Product, claim_amount: int | None, track: str | None = None) -> Quote:
+    fee = product.fee(track)
     vat = fee // 10
     unit = settings.COURT_SERVICE_UNIT_KRW
     costs: list[CostLine] = []
     claim = max(0, claim_amount or 0)
+    # 직접 제출 방식은 의뢰인이 우체국·법원에 실비를 직접 낸다 — 대신 받는 실비는 변호사 명의 방식에만 붙는다
+    kind = product.cost_kind if track == "atty" else "none"
 
-    if product.cost_kind == "certified_letter":
+    if kind == "certified_letter":
         costs.append(CostLine("내용증명 우편 발송비", settings.CERTIFIED_LETTER_POSTAGE_KRW, "우체국 요금 기준 예상액"))
-    elif product.cost_kind == "payment_order" and claim:
+    elif kind == "payment_order" and claim:
         # 지급명령 인지액은 소장의 1/10, 전자소송 감액 적용. 송달료는 당사자 2인 × 6회분.
         costs.append(CostLine("인지대", electronic(max(1_000, stamp_fee(claim) // 10 // 100 * 100)), f"소가 {claim:,}원 기준"))
         costs.append(CostLine("송달료", unit * 2 * 6, f"당사자 2인 × 6회분 × {unit:,}원"))
-    elif product.cost_kind == "small_claims" and claim:
+    elif kind == "small_claims" and claim:
         costs.append(CostLine("인지대", electronic(stamp_fee(claim)), f"소가 {claim:,}원 기준"))
         costs.append(CostLine("송달료", unit * 2 * 10, f"당사자 2인 × 10회분 × {unit:,}원"))
     return Quote(fee=fee, vat=vat, costs=costs)

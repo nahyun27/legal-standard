@@ -7,11 +7,11 @@ import { Check, CloudCheck, Paperclip, X } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import PaymentConsent from '@/components/PaymentConsent';
 import { questionsFor } from '@/data/intakeQuestions';
-import type { Service } from '@/data/types';
+import type { Service, TrackKind } from '@/data/types';
 import { TrustSeal } from '@/components/ui';
-import { serviceTitle } from '@/data/services';
+import { serviceTitle, trackOf } from '@/data/services';
 import { api, fmtSize, upload, type CaseDetail, type Quote } from '@/lib/api';
-import { won } from '@/lib/format';
+import { priceText, won } from '@/lib/format';
 import { startPayment, type Consents, type PayMethod } from '@/lib/payment';
 
 /**
@@ -20,6 +20,7 @@ import { startPayment, type Consents, type PayMethod } from '@/lib/payment';
  * 입력은 sessionStorage 에 둬서 로그인하러 다녀와도 남는다 — 탭을 닫으면 지워진다(민감정보라 오래 남기지 않음).
  * 첨부 파일은 브라우저 보안상 저장할 수 없어 로그인 후 다시 골라야 한다.
  * 금액은 서버 견적(/catalog/quote)만 보여주고, 결제도 서버가 사건에 고정한 금액으로만 한다.
+ * 두 방식이 있는 상품은 첫 단계에서 방식(직접 제출 / 변호사 명의)을 고른다 — 상품 페이지에서 고른 방식이 기본값.
  */
 const STEPS = ['당사자 정보', '사건 내용', '증거 자료', '총액 확인'] as const;
 const ANSWER_KEY = (k: string) => `q-${k}`;
@@ -32,13 +33,14 @@ interface Draft {
   amount: string;
   facts: string;
   answers: Record<string, string>;
+  track?: TrackKind;
 }
 
 const EMPTY: Draft = { step: 0, clientName: '', phone: '', opponent: '', amount: '', facts: '', answers: {} };
 const digits = (s: string) => s.replace(/\D/g, '');
 
 /** parentId: "다음 단계 이어서 신청"이면 이전 사건 id — 상대방·청구액·사실관계를 채워서 시작한다 */
-export default function IntakeForm({ service, parentId }: { service: Service; parentId?: number }) {
+export default function IntakeForm({ service, parentId, initialTrack }: { service: Service; parentId?: number; initialTrack?: TrackKind }) {
   const key = `intake:${service.slug}${parentId ? `:from${parentId}` : ''}`;
   const questions = questionsFor(service.slug);
   const router = useRouter();
@@ -50,7 +52,9 @@ export default function IntakeForm({ service, parentId }: { service: Service; pa
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
-  const isQuote = service.price.kind === 'quote';
+  const isQuote = service.price?.kind === 'quote';
+  const tracks = service.tracks ?? [];
+  const track = trackOf(service, d.track) ?? (tracks.length === 1 ? tracks[0] : undefined);
   const [consents, setConsents] = useState<Consents>({ agree_engagement: false, agree_withdrawal: false });
   const [method, setMethod] = useState<PayMethod>('card');
   const [parentNo, setParentNo] = useState<string | null>(null);
@@ -58,10 +62,12 @@ export default function IntakeForm({ service, parentId }: { service: Service; pa
   useEffect(() => {
     try {
       const saved = sessionStorage.getItem(key);
-      if (saved) setD({ ...EMPTY, ...JSON.parse(saved) });
+      const restored: Draft = saved ? { ...EMPTY, ...JSON.parse(saved) } : EMPTY;
+      // 상품 페이지에서 방식을 고르고 들어왔으면 그 방식을 우선한다
+      setD({ ...restored, track: initialTrack ?? restored.track ?? service.tracks?.[0]?.kind });
     } catch {}
     setLoaded(true);
-  }, [key]);
+  }, [key, initialTrack, service.tracks]);
 
   useEffect(() => {
     if (!loaded) return;
@@ -94,15 +100,22 @@ export default function IntakeForm({ service, parentId }: { service: Service; pa
   useEffect(() => {
     if (d.step !== 3) return;
     const claim = digits(d.amount);
-    api<Quote>(`/catalog/quote?service=${service.slug}${claim ? `&claim_amount=${claim}` : ''}`, {}, false)
+    const q = new URLSearchParams({ service: service.slug });
+    if (track) q.set('track', track.kind);
+    if (claim) q.set('claim_amount', claim);
+    setQuote(null);
+    api<Quote>(`/catalog/quote?${q}`, {}, false)
       .then(setQuote)
       .catch((e) => setError((e as Error).message));
-  }, [d.step, d.amount, service.slug]);
+  }, [d.step, d.amount, service.slug, track]);
 
   const set = (k: keyof Draft) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setD({ ...d, [k]: k === 'amount' ? (digits(e.target.value) ? Number(digits(e.target.value)).toLocaleString('ko-KR') : '') : e.target.value });
   const go = (s: number) => { setError(null); setD({ ...d, step: s }); };
-  const here = `/intake/${service.slug}${parentId ? `?from=${parentId}` : ''}`;
+  const hereQuery = new URLSearchParams();
+  if (parentId) hereQuery.set('from', String(parentId));
+  if (track && tracks.length > 1) hereQuery.set('track', track.kind);
+  const here = `/intake/${service.slug}${hereQuery.size ? `?${hereQuery}` : ''}`;
 
   function addFiles(list: FileList | null) {
     if (!list) return;
@@ -120,6 +133,7 @@ export default function IntakeForm({ service, parentId }: { service: Service; pa
         method: 'POST',
         body: JSON.stringify({
           service_slug: service.slug,
+          track: track?.kind ?? null,
           client_name: d.clientName,
           phone: d.phone,
           opponent_name: d.opponent || null,
@@ -155,7 +169,7 @@ export default function IntakeForm({ service, parentId }: { service: Service; pa
 
   const step = d.step;
   const canNext =
-    step === 0 ? d.clientName.trim().length >= 2 && digits(d.phone).length >= 10
+    step === 0 ? d.clientName.trim().length >= 2 && digits(d.phone).length >= 10 && (isQuote || !!track)
     : step === 1 ? (!service.claimRequired || !!digits(d.amount)) && d.facts.trim().length >= 10 && questions.every((q) => !q.required || !!d.answers[q.key]?.trim())
     : true;
   const consentOk = isQuote || (consents.agree_engagement && consents.agree_withdrawal);
@@ -180,6 +194,24 @@ export default function IntakeForm({ service, parentId }: { service: Service; pa
       <form key={step} className="intake-step" onSubmit={(e) => { e.preventDefault(); if (step < STEPS.length - 1 && canNext) go(step + 1); }}>
         {step === 0 && (
           <>
+            {tracks.length > 1 && (
+              <div className="field">
+                <span className="label">진행 방식</span>
+                <div className="track-pick" role="radiogroup" aria-label="진행 방식">
+                  {tracks.map((t) => (
+                    <button key={t.kind} type="button" role="radio" aria-checked={track?.kind === t.kind} onClick={() => setD({ ...d, track: t.kind })}>
+                      <span className="who">{t.label}{t.retainer && <span className="retainer">수임약정</span>}{t.note && <i>{t.note}</i>}</span>
+                      <span className="pr">{t.amount.toLocaleString('ko-KR')}<small>원</small></span>
+                    </button>
+                  ))}
+                </div>
+                <span className="hint">
+                  {track?.kind === 'atty'
+                    ? '수임이 확정되면 전자 수임약정을 맺고 변호사 명의로 진행합니다.'
+                    : '완성된 서면과 제출 안내서를 받아 본인 이름으로 제출합니다. 법원·우체국 실비는 제출할 때 직접 내시면 됩니다.'}
+                </span>
+              </div>
+            )}
             <div className="field"><label htmlFor="cn">의뢰인 성명</label><input id="cn" value={d.clientName} onChange={set('clientName')} required autoComplete="name" /></div>
             <div className="field"><label htmlFor="ph">연락처</label><input id="ph" value={d.phone} onChange={set('phone')} required type="tel" autoComplete="tel" placeholder="010-0000-0000" /></div>
             <div className="field">
@@ -310,6 +342,7 @@ export default function IntakeForm({ service, parentId }: { service: Service; pa
         <span className="eyebrow" style={{ marginBottom: 6 }}>입력 내용 확인</span>
         <h3>{serviceTitle(service)}</h3>
         <dl className="sum-list">
+          {tracks.length > 1 && <div><dt>진행 방식</dt><dd>{track?.label ?? '—'}</dd></div>}
           <div><dt>의뢰인</dt><dd>{d.clientName || '—'}</dd></div>
           <div><dt>상대방</dt><dd>{d.opponent || '—'}</dd></div>
           <div><dt>청구 금액</dt><dd>{d.amount ? `${d.amount}원` : '—'}</dd></div>
@@ -317,7 +350,7 @@ export default function IntakeForm({ service, parentId }: { service: Service; pa
         </dl>
         <div className="sum-total">
           <span>{isQuote ? '수임료' : step === 3 && quote ? '결제 총액' : '정찰가'}</span>
-          <b>{isQuote ? '개별 견적' : step === 3 && quote ? won(quote.total) : service.price.kind === 'fixed' || service.price.kind === 'from' ? `${won(service.price.amount)}${service.price.kind === 'from' ? '~' : ''}` : '—'}</b>
+          <b>{isQuote ? '개별 견적' : step === 3 && quote ? won(quote.total) : priceText(service, track?.kind)}</b>
         </div>
         {!isQuote && step < 3 && <p className="sub" style={{ marginTop: 6 }}>부가세·실비는 마지막 단계에서 항목별로 계산됩니다.</p>}
         <p className="autosave"><CloudCheck size={14} /> 입력 내용이 이 브라우저에 자동 저장됩니다</p>

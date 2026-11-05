@@ -34,14 +34,7 @@ export const INTAKE_QUESTIONS: Record<string, Question[]> = {
     { key: 'opponent_id', label: '채무자 생년월일 또는 사업자번호(아는 경우)', type: 'text' },
     { key: 'certified_sent', label: '내용증명을 보냈나요?', type: 'select', options: ['보냈다', '안 보냈다'] },
   ],
-  'complaint-basic': complaintQuestions(),
-  'complaint-standard': complaintQuestions(),
-  'draft-review': [
-    { key: 'doc_type', label: '검토받을 서면', type: 'select', required: true, options: ['소장', '답변서', '준비서면', '고소장', '지급명령 신청서', '내용증명', '기타'] },
-    { key: 'submit_to', label: '제출할 곳', type: 'text', placeholder: '예: 서울중앙지방법원, ○○경찰서' },
-    { key: 'submit_by', label: '제출 기한', type: 'date', hint: '기한이 촉박하면 수임 검토 때 먼저 확인합니다.' },
-    { key: 'concern', label: '특히 확인받고 싶은 부분', type: 'textarea' },
-  ],
+  complaint: complaintQuestions(),
 };
 
 function complaintQuestions(): Question[] {

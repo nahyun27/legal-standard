@@ -3,14 +3,14 @@ import { BadgeCheck, Receipt, Route } from 'lucide-react';
 import Reveal from '@/components/Reveal';
 import ServicesBrowser from '@/components/ServicesBrowser';
 import { PageHero, StageBadge, StatChips, TrustSeal } from '@/components/ui';
-import { SERVICES, TIER_LABEL, serviceTitle } from '@/data/services';
-import type { Tier } from '@/data/types';
-import { priceLabel } from '@/lib/format';
+import { AREA_LABEL, SERVICES, trackOf } from '@/data/services';
+import type { Area, Service, TrackKind } from '@/data/types';
+import { priceText, won } from '@/lib/format';
 import { pageMeta } from '@/lib/seo';
 
 export const metadata = pageMeta({
   title: '서비스·가격',
-  description: '내용증명, 지급명령, 고소장, 소송대리까지 모든 상품의 가격과 업무범위.',
+  description: '민사·형사·자문 모든 상품의 직접 제출·변호사 명의 두 가지 가격과 업무범위.',
   path: '/services',
 });
 
@@ -20,26 +20,28 @@ const PRINCIPLES = [
   { icon: BadgeCheck, title: '수임하지 않으면 전액 환불', body: '담당 변호사가 검토한 뒤 정해진 서비스로 진행하기 어렵다고 판단하면 결제금액을 전부 돌려드립니다.' },
 ];
 
-const TIERS: { tier: Tier; desc: string }[] = [
-  { tier: 'T1', desc: '변호사가 검토하고 서명한 서면을 제출하거나 발송해 드립니다.' },
-  { tier: 'T1R', desc: '직접 쓰신 초안을 내기 전에 변호사가 검토해 고치고 서명합니다.' },
-  { tier: 'T2', desc: '업무범위를 미리 정해 두고 소송이나 수사 단계를 대리합니다. 성공보수율도 미리 공개합니다.' },
-  { tier: 'T3', desc: '복잡하거나 금액이 큰 사건은 법무법인 본체 변호사가 개별 상담합니다.' },
-];
+/** 전체 가격표 한 칸 — 그 방식이 있으면 가격, 없으면 "—". 구간·단계형은 첫 칸에 "○○원~" */
+function cell(s: Service, kind: TrackKind) {
+  if (s.tracks) {
+    const t = trackOf(s, kind);
+    return t ? `${won(t.amount)}${t.per ? `/${t.per}` : ''}` : '—';
+  }
+  return kind === 'self' ? '—' : priceText(s);
+}
 
 export default function ServicesPage() {
-  const open = SERVICES.filter((s) => s.stage === 'pilot').length;
+  const open = SERVICES.filter((s) => s.stage === 'pilot' && s.area !== 'consult').length;
   return (
     <>
       <PageHero
         crumbs={[{ label: '서비스·가격' }]}
         title="서비스·가격"
-        lead="가격은 상품마다 정해져 있고 따로 협의하지 않습니다. 지금 상황을 고르면 맞는 서비스와 다음 단계 가격이 함께 나옵니다."
+        lead="상품마다 두 가지 가격이 있습니다. 변호사가 검토한 서면을 본인 이름으로 직접 내거나, 변호사 명의로 제출과 이후 절차까지 맡길 수 있습니다. 가격은 따로 협의하지 않습니다."
         aside={
           <StatChips items={[
             { label: '지금 접수 가능', value: `${open}개 서비스` },
-            { label: '내용증명부터', value: '55,000원' },
-            { label: '표준 납기', value: '2~5영업일' },
+            { label: '전체 상품', value: `${SERVICES.filter((s) => s.area !== 'consult').length}종` },
+            { label: '완성까지', value: '2~5영업일' },
           ]} />
         }
       >
@@ -78,21 +80,21 @@ export default function ServicesPage() {
         <div className="container">
           <details className="price-table-toggle">
             <summary>
-              <span><b>전체 가격표</b> 모든 상품의 정찰가·처리 기간을 한 표로 봅니다</span>
+              <span><b>전체 가격표</b> 모든 상품의 두 가지 가격과 처리 기간을 한 표로 봅니다</span>
             </summary>
-            {TIERS.map(({ tier, desc }) => (
-              <div key={tier} className="price-tier">
-                <h3>{TIER_LABEL[tier]} <span className="sub">{desc}</span></h3>
+            {(Object.keys(AREA_LABEL) as Exclude<Area, 'consult'>[]).map((area) => (
+              <div key={area} className="price-tier">
+                <h3>{AREA_LABEL[area]}</h3>
                 <div className="table-wrap">
                   <table className="table price-table">
-                    <thead><tr><th>상품</th><th>내용</th><th>처리 기간</th><th style={{ textAlign: 'right' }}>정찰가</th></tr></thead>
+                    <thead><tr><th>상품</th><th>처리 기간</th><th style={{ textAlign: 'right' }}>내가 직접 제출</th><th style={{ textAlign: 'right' }}>변호사 명의</th></tr></thead>
                     <tbody>
-                      {SERVICES.filter((s) => s.tier === tier).map((s) => (
+                      {SERVICES.filter((s) => s.area === area).map((s) => (
                         <tr key={s.slug}>
-                          <td><Link href={`/services/${s.slug}`}><b>{serviceTitle(s)}</b></Link><div style={{ marginTop: 4 }}><StageBadge service={s} /></div></td>
-                          <td>{s.summary}</td>
-                          <td className="sub">{s.turnaround}</td>
-                          <td className="num">{priceLabel(s.price)}</td>
+                          <td><Link href={`/services/${s.slug}`}><b>{s.name}</b></Link>{s.unit && <span className="sub" style={{ display: 'block' }}>{s.unit}</span>}<div style={{ marginTop: 4 }}><StageBadge service={s} /></div></td>
+                          <td className="sub">{s.turnaround ?? '—'}</td>
+                          <td className="num">{cell(s, 'self')}</td>
+                          <td className="num">{cell(s, 'atty')}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -100,6 +102,7 @@ export default function ServicesPage() {
                 </div>
               </div>
             ))}
+            <p className="note">계약서 검토는 장수 구간별, 피의사건 정찰 변호는 단계별 가격입니다. 자세한 구간은 상품 페이지에서 확인하세요. 개별 상담이 필요한 사건은 견적을 따로 안내합니다.</p>
           </details>
         </div>
       </section>

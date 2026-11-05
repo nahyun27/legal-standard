@@ -54,10 +54,11 @@ try {
   // ── 고객 ──
   const customer = await (await browser.newContext()).newPage();
   watch(customer, 'customer');
-  await signup(customer, `e2e고객${stamp}`, '박고객', '01055556666', '/intake/payment-order');
+  await signup(customer, `e2e고객${stamp}`, '박고객', '01055556666', '/intake/payment-order?track=atty');
   await customer.waitForURL(/\/intake\/payment-order/);
   await customer.waitForSelector('#cn');
   expect((await customer.inputValue('#cn')) === '박고객', '가입 정보로 의뢰인 이름이 채워진다');
+  expect((await customer.locator('.track-pick [aria-checked="true"]').innerText()).includes('변호사 명의'), '상품 페이지에서 고른 방식(변호사 명의)이 선택돼 있다');
   await customer.fill('#op', `(주)상대상사${stamp}`);
   await customer.click('button:has-text("다음")');
   await customer.fill('#am', '5000000');
@@ -75,7 +76,7 @@ try {
   expect(await payBtn.isDisabled(), '결제 전 동의 없이는 결제 버튼이 잠긴다');
   await customer.click('.pay-methods button:has-text("카카오페이")');
   await customer.click('.pay-box .consent-all input');
-  expect((await payBtn.innerText()).includes('277,200원'), '결제 금액 = 서버 견적(수임료+VAT+인지대+송달료)');
+  expect((await payBtn.innerText()).includes('343,200원'), '결제 금액 = 서버 견적(변호사 명의 수임료+VAT+인지대+송달료)');
   await payBtn.click();
   await customer.waitForURL(/\/my\/cases\/\d+\?paid=1/);
   const caseId = customer.url().match(/cases\/(\d+)/)[1];

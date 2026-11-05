@@ -43,6 +43,8 @@ class Case(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     service_slug: Mapped[str] = mapped_column(String(40), nullable=False)
     service_name: Mapped[str] = mapped_column(String(80), nullable=False)
+    # 진행 방식 — self(본인 명의로 직접 제출·발송) / atty(변호사 명의). 개별 견적 사건은 None
+    track: Mapped[str | None] = mapped_column(String(10), nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default=CaseStatus.PENDING_PAYMENT, index=True)
 
     # 문진 원문(상품별 문항). 사건 정보는 비밀유지 대상 — 외부 AI 학습·다른 목적 재사용 금지(기획서 X-4).

@@ -11,7 +11,9 @@ export function generateStaticParams() {
 
 export default async function IntakePage({ params, searchParams }: PageProps<'/intake/[slug]'>) {
   const s = getService((await params).slug);
-  const from = Number((await searchParams).from);
+  const q = await searchParams;
+  const from = Number(q.from);
+  const track = q.track === 'self' || q.track === 'atty' ? q.track : undefined;
   if (!s || s.stage !== 'pilot') notFound();
 
   return (
@@ -22,7 +24,7 @@ export default async function IntakePage({ params, searchParams }: PageProps<'/i
         lead="입력하신 내용은 담당 변호사의 수임 검토에 쓰입니다. 표준 업무범위로 처리하기 어려운 사건이면 결제 전에 안내해 드립니다."
       />
       <div className="container">
-        <IntakeForm service={s} parentId={Number.isInteger(from) && from > 0 ? from : undefined} />
+        <IntakeForm service={s} parentId={Number.isInteger(from) && from > 0 ? from : undefined} initialTrack={track} />
       </div>
     </>
   );

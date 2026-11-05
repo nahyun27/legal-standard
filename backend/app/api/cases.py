@@ -15,7 +15,7 @@ import logging
 
 from app.core import storage, toss
 from app.core.audit import record
-from app.core.catalog import get_product
+from app.core.catalog import Product, get_product, service_name
 from app.core.config import settings
 from app.core.conflict import name_key
 from app.core.database import get_db
@@ -59,7 +59,7 @@ def case_for_customer(c: Case, db: Session) -> dict:
     if c.status == CaseStatus.DELIVERED and c.approved_file_id:
         files += [f for f in c.files if f.id == c.approved_file_id]
     return {
-        "id": c.id, "case_no": c.case_no, "service_slug": c.service_slug, "service_name": c.service_name,
+        "id": c.id, "case_no": c.case_no, "service_slug": c.service_slug, "service_name": c.service_name, "track": c.track,
         "status": c.status, "status_label": c.status_label,
         "opponent_name": c.opponent_name, "claim_amount": c.claim_amount, "intake": c.intake,
         "fee": c.fee, "vat": c.vat, "costs": c.costs, "total": c.total,
@@ -83,12 +83,29 @@ def own_case(db: Session, case_id: int, user: User) -> Case:
 # ---------- 견적 -------------------------------------------------------------
 
 
+def check_track(product: Product, track: str | None) -> str | None:
+    """정찰가 상품은 그 상품에서 고를 수 있는 방식이어야 한다. 개별 견적 상품은 방식이 없다."""
+    if product.is_quote:
+        return None
+    if track not in (product.fees or {}):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="진행 방식(직접 제출 / 변호사 명의)을 선택해 주세요.")
+    return track
+
+
 @router.get("/catalog/quote")
-def get_quote(service: str, claim_amount: int | None = Query(default=None, ge=0, le=100_000_000_000)) -> dict:
+def get_quote(
+    service: str,
+    track: str | None = None,
+    claim_amount: int | None = Query(default=None, ge=0, le=100_000_000_000),
+) -> dict:
     product = get_product(service)
     if product is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="지금은 접수할 수 없는 상품입니다.")
-    return {"service_slug": product.slug, "service_name": product.name, "is_quote": product.fee is None, **quote_dict(quote(product, claim_amount))}
+    track = check_track(product, track)
+    return {
+        "service_slug": product.slug, "service_name": service_name(product, track), "track": track,
+        "is_quote": product.is_quote, **quote_dict(quote(product, claim_amount, track)),
+    }
 
 
 # ---------- 접수 -------------------------------------------------------------
@@ -99,6 +116,7 @@ def create_case(payload: IntakeIn, request: Request, user: User = Depends(get_on
     product = get_product(payload.service_slug)
     if product is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="지금은 접수할 수 없는 상품입니다.")
+    track = check_track(product, payload.track)
     if product.needs_claim_amount and not payload.claim_amount:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="청구 금액을 입력해 주세요.")
 
@@ -107,12 +125,13 @@ def create_case(payload: IntakeIn, request: Request, user: User = Depends(get_on
         if parent is None or parent.user_id != user.id:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="이전 사건을 찾을 수 없습니다.")
 
-    q = quote(product, payload.claim_amount)
+    q = quote(product, payload.claim_amount, track)
     # 같은 상품의 결제 대기 사건이 있으면 새로 만들지 않고 덮어쓴다(뒤로가기·재시도로 사건이 쌓이지 않게)
     c = db.scalar(select(Case).where(Case.user_id == user.id, Case.service_slug == product.slug, Case.status == CaseStatus.PENDING_PAYMENT))
     if c is None:
-        c = Case(user_id=user.id, service_slug=product.slug, service_name=product.name)
+        c = Case(user_id=user.id, service_slug=product.slug)
         db.add(c)
+    c.track, c.service_name = track, service_name(product, track)
     c.intake = {"client_name": payload.client_name, "phone": payload.phone, "facts": payload.facts, "answers": payload.answers}
     c.opponent_name = (payload.opponent_name or "").strip() or None
     c.opponent_key = name_key(c.opponent_name)
@@ -121,12 +140,12 @@ def create_case(payload: IntakeIn, request: Request, user: User = Depends(get_on
     c.fee, c.vat, c.costs, c.total = q.fee, q.vat, quote_dict(q)["costs"], q.total
     c.source = payload.source
 
-    if product.fee is None:
+    if product.is_quote:
         # 심화 사건(개별 견적)은 결제 없이 바로 수임 검토로
         c.status = CaseStatus.REVIEWING
         c.paid_at = None
     db.flush()
-    record(db, "case.create", actor_id=user.id, target_type="case", target_id=c.id, detail={"service": product.slug, "total": c.total}, request=request)
+    record(db, "case.create", actor_id=user.id, target_type="case", target_id=c.id, detail={"service": product.slug, "track": track, "total": c.total}, request=request)
     db.commit()
     db.refresh(c)
     return case_for_customer(c, db)

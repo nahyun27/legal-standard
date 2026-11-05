@@ -4,7 +4,7 @@ from app.models.case import Case
 from tests.conftest import login_as, make_user
 
 INTAKE = {
-    "service_slug": "payment-order", "client_name": "의뢰인", "phone": "010-2222-3333",
+    "service_slug": "payment-order", "track": "atty", "client_name": "의뢰인", "phone": "010-2222-3333",
     "opponent_name": "상대회사", "claim_amount": 5_000_000, "facts": "3월에 빌려줌",
 }
 
@@ -25,8 +25,22 @@ def pay(client, case_id, amount=None):
 
 
 def test_quote_is_public(client):
-    r = client.get("/api/v1/catalog/quote", params={"service": "payment-order", "claim_amount": 5_000_000})
-    assert r.status_code == 200 and r.json()["total"] == 277_200
+    r = client.get("/api/v1/catalog/quote", params={"service": "payment-order", "track": "atty", "claim_amount": 5_000_000})
+    assert r.status_code == 200 and r.json()["total"] == 343_200
+    assert r.json()["service_name"] == "지급명령 신청 · 변호사 명의"
+
+
+def test_self_track_has_no_costs(client):
+    # 직접 제출은 의뢰인이 법원에 인지대·송달료를 직접 낸다 — 수임료와 부가세만 받는다
+    r = client.get("/api/v1/catalog/quote", params={"service": "payment-order", "track": "self", "claim_amount": 5_000_000})
+    assert r.json()["costs"] == [] and r.json()["total"] == 165_000
+
+
+def test_track_is_required_for_priced_products(client, db):
+    assert client.get("/api/v1/catalog/quote", params={"service": "payment-order"}).status_code == 422
+    make_user(client, db, "고객")
+    assert client.post("/api/v1/cases", json={**INTAKE, "track": None}).status_code == 422
+    assert client.post("/api/v1/cases", json={**INTAKE, "track": "proxy"}).status_code == 422
 
 
 def test_case_requires_onboarding(client, db):
@@ -37,10 +51,11 @@ def test_case_requires_onboarding(client, db):
 def test_create_case_uses_server_price_and_reuses_pending(client, db):
     make_user(client, db, "고객")
     a = new_case(client)
-    assert a["status"] == "pending_payment" and a["total"] == 277_200
-    b = new_case(client, facts="수정한 내용")
-    assert a["id"] == b["id"]  # 같은 상품의 결제 대기 사건은 덮어쓴다
+    assert a["status"] == "pending_payment" and a["total"] == 343_200 and a["track"] == "atty"
+    b = new_case(client, facts="수정한 내용", track="self")
+    assert a["id"] == b["id"]  # 같은 상품의 결제 대기 사건은 덮어쓴다(방식을 바꿔도)
     assert b["intake"]["facts"] == "수정한 내용"
+    assert b["track"] == "self" and b["total"] == 165_000 and b["service_name"] == "지급명령 신청 · 직접 제출"
 
 
 def test_claim_amount_required_for_money_products(client, db):

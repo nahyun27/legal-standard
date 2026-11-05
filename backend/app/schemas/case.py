@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field, field_validator
 
 from app.schemas.auth import normalize_name, normalize_phone
@@ -7,6 +9,7 @@ class IntakeIn(BaseModel):
     """공통 문진. 상품별 추가 문항은 answers 에 담는다(문항 정의는 프론트, 저장은 원문 그대로)."""
 
     service_slug: str
+    track: Literal["self", "atty"] | None = None
     client_name: str
     phone: str
     opponent_name: str | None = Field(default=None, max_length=100)
