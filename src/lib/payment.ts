@@ -24,8 +24,12 @@ export interface Consents {
  *   결제창에서 결제 후 창을 닫아도 서버의 웹훅·대조 작업이 결제를 반영한다.
  * 반환 'redirected' = 결제창으로 이동, 'canceled' = 사용자가 결제창을 닫음.
  */
-export async function startPayment(caseId: number, consents: Consents, method: PayMethod = 'card'): Promise<CaseDetail | 'redirected' | 'canceled'> {
-  const p = await api<PaymentStart>(`/cases/${caseId}/payment`, { method: 'POST', body: JSON.stringify(consents) });
+export async function startPayment(
+  caseId: number, consents: Consents, method: PayMethod = 'card', chargeId?: number,
+): Promise<CaseDetail | 'redirected' | 'canceled'> {
+  // chargeId: 수임 후 추가 요금(기일·조사 출석) 결제 — 금액은 서버 청구 그대로
+  const path = chargeId ? `/cases/${caseId}/charges/${chargeId}/payment` : `/cases/${caseId}/payment`;
+  const p = await api<PaymentStart>(path, { method: 'POST', body: JSON.stringify(consents) });
   if (p.simulated || !p.client_key) {
     return api<CaseDetail>('/payments/confirm', {
       method: 'POST',

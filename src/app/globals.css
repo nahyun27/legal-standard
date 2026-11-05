@@ -1216,3 +1216,21 @@ a.card:hover .card-more { color: var(--tag); gap: 6px; }
 .screen { margin-top: 14px; font-size: .84rem; color: var(--ink-soft); background: var(--mist); border-left: 3px solid var(--ink); border-radius: 0 8px 8px 0; padding: 12px 14px; line-height: 1.65; }
 .screen b { color: var(--ink); margin-right: 6px; }
 .hero-unit { display: block; font-size: .86rem; color: var(--kraft-ink); margin-bottom: 6px; }
+
+/* ── 2단계: 수임 조건 문항·수임약정·추가 요금 ─────────────────────── */
+.screen-qs { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: grid; gap: 12px; }
+.screen-qs legend { padding: 0 6px; }
+.screen-q { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 14px; font-size: .88rem; }
+.seg-mini { display: inline-flex; gap: 4px; padding: 3px; background: var(--mist); border-radius: 999px; }
+.seg-mini button { border: 0; background: transparent; font: inherit; font-size: .8rem; font-weight: 700; color: var(--ink-soft); padding: 5px 12px; border-radius: 999px; cursor: pointer; }
+.seg-mini button[aria-checked='true'] { background: var(--ink); color: #fff; }
+.price-panel-tag .item .unit { display: block; font-size: .74rem; font-weight: 600; color: var(--kraft-ink); margin-top: 2px; }
+.retainer-card h3 { display: flex; align-items: center; gap: 8px; }
+.retainer-card.needs-sign { border-color: var(--tag); box-shadow: 0 0 0 3px rgba(214, 51, 31, .08); }
+.retainer-text {
+  margin-top: 12px; max-height: 320px; overflow: auto; white-space: pre-wrap; word-break: keep-all;
+  font-family: var(--sans); font-size: .84rem; line-height: 1.75; color: var(--ink-soft);
+  background: var(--mist); border-radius: 10px; padding: 16px 18px;
+}
+.retainer-sign { display: grid; gap: 12px; margin-top: 14px; }
+.charge-form select { border: 1px solid var(--line); border-radius: 6px; padding: 9px 12px; background: #fff; font: inherit; font-size: .88rem; min-width: 0; }

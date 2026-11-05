@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 import logging
 
-from app.core import storage, toss
+from app.core import retainer, storage, toss
 from app.core.audit import record
 from app.core.catalog import Product, get_product, service_name
 from app.core.config import settings
@@ -24,9 +24,9 @@ from app.core.fees import quote
 from app.core.notify import notify
 from app.core.payments import mark_paid
 from app.core.timeutil import aware, business_days_between, now
-from app.models.case import Case, CaseFile, CaseStatus, Payment
+from app.models.case import Case, CaseFile, CaseStatus, Charge, Payment
 from app.models.user import User
-from app.schemas.case import ConfirmIn, IntakeIn, PaymentStartIn
+from app.schemas.case import ConfirmIn, IntakeIn, PaymentStartIn, RetainerSignIn
 
 logger = logging.getLogger("payments")
 
@@ -49,6 +49,22 @@ def quote_dict(q) -> dict:
     }
 
 
+def charge_dict(ch: Charge) -> dict:
+    return {
+        "id": ch.id, "label": ch.label, "option": ch.option, "note": ch.note, "fee": ch.fee, "vat": ch.vat, "total": ch.total,
+        "status": ch.status, "created_at": ch.created_at, "paid_at": ch.paid_at,
+    }
+
+
+def retainer_state(c: Case) -> dict | None:
+    """수임약정이 필요한 사건이면 서명 여부. 필요 없으면 None."""
+    product = get_product(c.service_slug)
+    if not product or not product.needs_retainer(c.track):
+        return None
+    signed = c.retainer or {}
+    return {"required": True, "signed_at": signed.get("signed_at"), "version": signed.get("version")}
+
+
 def file_dict(f: CaseFile) -> dict:
     return {"id": f.id, "kind": f.kind, "filename": f.filename, "size": f.size, "created_at": f.created_at}
 
@@ -60,6 +76,7 @@ def case_for_customer(c: Case, db: Session) -> dict:
         files += [f for f in c.files if f.id == c.approved_file_id]
     return {
         "id": c.id, "case_no": c.case_no, "service_slug": c.service_slug, "service_name": c.service_name, "track": c.track,
+        "units": c.units, "retainer": retainer_state(c), "charges": [charge_dict(x) for x in c.charges if x.status != "canceled"],
         "status": c.status, "status_label": c.status_label,
         "opponent_name": c.opponent_name, "claim_amount": c.claim_amount, "intake": c.intake,
         "fee": c.fee, "vat": c.vat, "costs": c.costs, "total": c.total,
@@ -84,27 +101,51 @@ def own_case(db: Session, case_id: int, user: User) -> Case:
 
 
 def check_track(product: Product, track: str | None) -> str | None:
-    """정찰가 상품은 그 상품에서 고를 수 있는 방식이어야 한다. 개별 견적 상품은 방식이 없다."""
+    """정찰가 상품은 그 상품에서 고를 수 있는 선택지여야 한다. 개별 견적 상품은 선택지가 없다."""
     if product.is_quote:
         return None
     if track not in (product.fees or {}):
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="진행 방식(직접 제출 / 변호사 명의)을 선택해 주세요.")
+        what = "진행 방식(직접 제출 / 변호사 명의)" if set(product.fees or {}) == {"self", "atty"} else "가격 선택지"
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"{what}을 선택해 주세요.")
     return track
+
+
+def check_units(product: Product, units: int) -> int:
+    if not product.unit_label:
+        return 1
+    if units > product.max_units:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"{product.unit_label}이 {product.max_units}개를 넘으면 정찰가로 맡기 어렵습니다. 심화 사건 상담으로 신청해 주세요.",
+        )
+    return units
+
+
+def check_screening(product: Product, answers: dict[str, str]) -> None:
+    """정찰가 수임 조건(피의사건: 혐의 인정·혐의 1개·불구속) — 하나라도 다르면 접수하지 않는다."""
+    for q in product.screening:
+        if answers.get(q.key) != q.required:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"「{q.question}」 조건에 맞지 않아 정찰가로 맡기 어렵습니다. 심화 사건 상담으로 신청해 주세요.",
+            )
 
 
 @router.get("/catalog/quote")
 def get_quote(
     service: str,
     track: str | None = None,
+    units: int = Query(default=1, ge=1, le=10),
     claim_amount: int | None = Query(default=None, ge=0, le=100_000_000_000),
 ) -> dict:
     product = get_product(service)
     if product is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="지금은 접수할 수 없는 상품입니다.")
     track = check_track(product, track)
+    units = check_units(product, units)
     return {
-        "service_slug": product.slug, "service_name": service_name(product, track), "track": track,
-        "is_quote": product.is_quote, **quote_dict(quote(product, claim_amount, track)),
+        "service_slug": product.slug, "service_name": service_name(product, track, units), "track": track, "units": units,
+        "is_quote": product.is_quote, **quote_dict(quote(product, claim_amount, track, units)),
     }
 
 
@@ -117,6 +158,8 @@ def create_case(payload: IntakeIn, request: Request, user: User = Depends(get_on
     if product is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="지금은 접수할 수 없는 상품입니다.")
     track = check_track(product, payload.track)
+    units = check_units(product, payload.units)
+    check_screening(product, payload.screening)
     if product.needs_claim_amount and not payload.claim_amount:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="청구 금액을 입력해 주세요.")
 
@@ -125,14 +168,15 @@ def create_case(payload: IntakeIn, request: Request, user: User = Depends(get_on
         if parent is None or parent.user_id != user.id:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="이전 사건을 찾을 수 없습니다.")
 
-    q = quote(product, payload.claim_amount, track)
+    q = quote(product, payload.claim_amount, track, units)
     # 같은 상품의 결제 대기 사건이 있으면 새로 만들지 않고 덮어쓴다(뒤로가기·재시도로 사건이 쌓이지 않게)
     c = db.scalar(select(Case).where(Case.user_id == user.id, Case.service_slug == product.slug, Case.status == CaseStatus.PENDING_PAYMENT))
     if c is None:
         c = Case(user_id=user.id, service_slug=product.slug)
         db.add(c)
-    c.track, c.service_name = track, service_name(product, track)
-    c.intake = {"client_name": payload.client_name, "phone": payload.phone, "facts": payload.facts, "answers": payload.answers}
+    c.track, c.units, c.service_name = track, units, service_name(product, track, units)
+    c.intake = {"client_name": payload.client_name, "phone": payload.phone, "facts": payload.facts, "answers": payload.answers,
+                **({"screening": payload.screening} if product.screening else {})}
     c.opponent_name = (payload.opponent_name or "").strip() or None
     c.opponent_key = name_key(c.opponent_name)
     c.parent_case_id = payload.parent_case_id
@@ -145,7 +189,7 @@ def create_case(payload: IntakeIn, request: Request, user: User = Depends(get_on
         c.status = CaseStatus.REVIEWING
         c.paid_at = None
     db.flush()
-    record(db, "case.create", actor_id=user.id, target_type="case", target_id=c.id, detail={"service": product.slug, "track": track, "total": c.total}, request=request)
+    record(db, "case.create", actor_id=user.id, target_type="case", target_id=c.id, detail={"service": product.slug, "track": track, "units": units, "total": c.total}, request=request)
     db.commit()
     db.refresh(c)
     return case_for_customer(c, db)
@@ -173,6 +217,49 @@ def cancel_case(case_id: int, request: Request, user: User = Depends(get_current
     record(db, "case.cancel", actor_id=user.id, target_type="case", target_id=c.id, request=request)
     db.commit()
     return {"status": "ok"}
+
+
+# ---------- 전자 수임약정 -----------------------------------------------------
+
+
+def retainer_case(db: Session, case_id: int, user: User) -> tuple[Case, "Product"]:
+    c = own_case(db, case_id, user)
+    product = get_product(c.service_slug)
+    if not product or not product.needs_retainer(c.track):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="수임약정이 필요 없는 사건입니다.")
+    return c, product
+
+
+@router.get("/cases/{case_id}/retainer")
+def get_retainer(case_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> dict:
+    c, product = retainer_case(db, case_id, user)
+    text = retainer.retainer_text(c, product)
+    return {"version": settings.RETAINER_VERSION, "text": text, "sha256": retainer.digest(text), "signed": c.retainer}
+
+
+@router.post("/cases/{case_id}/retainer")
+def sign_retainer(case_id: int, payload: RetainerSignIn, request: Request, user: User = Depends(get_onboarded_user), db: Session = Depends(get_db)) -> dict:
+    """수임 확정 뒤에만 서명한다(수임 여부를 변호사가 정하기 전에는 계약이 성립하지 않는다)."""
+    c, product = retainer_case(db, case_id, user)
+    if c.retainer:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="이미 서명한 수임약정입니다.")
+    if c.status not in (CaseStatus.IN_PROGRESS, CaseStatus.LAWYER_REVIEW):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="수임이 확정된 뒤에 서명할 수 있습니다.")
+    if not payload.agree:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="수임약정 내용에 동의해 주세요.")
+    if "".join(payload.name.split()) != "".join((c.intake.get("client_name") or "").split()):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="문진에 적은 의뢰인 성명과 같게 입력해 주세요.")
+    text = retainer.retainer_text(c, product)
+    if payload.sha256 != retainer.digest(text):
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="수임약정 내용이 바뀌었습니다. 화면을 새로고침한 뒤 다시 확인해 주세요.")
+    c.retainer = {
+        "version": settings.RETAINER_VERSION, "signed_at": now().isoformat(), "name": payload.name.strip(),
+        "ip": request.client.host if request.client else None, "sha256": payload.sha256,
+    }
+    record(db, "case.retainer_sign", actor_id=user.id, target_type="case", target_id=c.id,
+           detail={"version": settings.RETAINER_VERSION, "sha256": payload.sha256}, request=request)
+    db.commit()
+    return case_for_customer(c, db)
 
 
 # ---------- 결제 -------------------------------------------------------------
@@ -205,6 +292,26 @@ def start_payment(case_id: int, payload: PaymentStartIn, request: Request, user:
     }
 
 
+@router.post("/cases/{case_id}/charges/{charge_id}/payment")
+def start_charge_payment(case_id: int, charge_id: int, payload: PaymentStartIn, user: User = Depends(get_onboarded_user), db: Session = Depends(get_db)) -> dict:
+    """추가 요금(기일·조사 출석) 결제 시작. 금액은 변호사가 catalog 정찰가로 만든 청구 그대로다."""
+    c = own_case(db, case_id, user)
+    ch = db.get(Charge, charge_id)
+    if ch is None or ch.case_id != c.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="청구를 찾을 수 없습니다.")
+    if ch.status != "pending":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="이미 결제했거나 취소된 청구입니다.")
+    p = Payment(case_id=c.id, charge_id=ch.id, order_id=f"LS-{c.id}-C{ch.id}-{secrets.token_hex(4)}", amount=ch.total, simulated=settings.payment_simulated)
+    db.add(p)
+    db.commit()
+    return {
+        "order_id": p.order_id, "amount": p.amount, "order_name": f"{c.service_name} 추가 · {ch.label}"[:100],
+        "customer_key": f"ls-user-{user.id}", "customer_name": c.intake.get("client_name") or user.name,
+        "customer_phone": c.intake.get("phone") or user.phone,
+        "client_key": settings.TOSS_CLIENT_KEY, "simulated": settings.payment_simulated,
+    }
+
+
 @router.post("/payments/confirm")
 def confirm_payment(payload: ConfirmIn, request: Request, user: User = Depends(get_onboarded_user), db: Session = Depends(get_db)) -> dict:
     p = db.scalar(select(Payment).where(Payment.order_id == payload.order_id))
@@ -213,10 +320,12 @@ def confirm_payment(payload: ConfirmIn, request: Request, user: User = Depends(g
     c = p.case
     if p.status == "done":
         return case_for_customer(c, db)  # 새로고침 등 중복 호출
-    if p.status != "ready" or c.status != CaseStatus.PENDING_PAYMENT:
+    # 본 결제는 결제 대기 사건, 추가 요금 결제는 미결제 청구여야 한다
+    open_ = p.charge.status == "pending" if p.charge else c.status == CaseStatus.PENDING_PAYMENT
+    if p.status != "ready" or not open_:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="이미 처리된 결제입니다.")
     # 금액은 서버에 저장된 값과 반드시 같아야 한다(클라이언트 변조 방지)
-    if payload.amount != p.amount or p.amount != c.total:
+    if payload.amount != p.amount or p.amount != (p.charge.total if p.charge else c.total):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="결제 금액이 일치하지 않습니다.")
 
     if p.simulated:
@@ -228,7 +337,8 @@ def confirm_payment(payload: ConfirmIn, request: Request, user: User = Depends(g
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="결제가 완료되지 않았습니다.")
         mark_paid(db, p, payment_key=payload.payment_key, data=data, via="confirm", actor_id=user.id)
     db.commit()
-    notify(db, user, "paid", c)
+    if not p.charge:
+        notify(db, user, "paid", c)
     return case_for_customer(c, db)
 
 
@@ -266,7 +376,8 @@ def sync_payment(db: Session, p: Payment, *, via: str) -> str:
             db.commit()
             return "mismatch"
         db.commit()
-        notify(db, db.get(User, p.case.user_id), "paid", p.case)
+        if not p.charge:
+            notify(db, db.get(User, p.case.user_id), "paid", p.case)
         return "paid"
     if st in ("CANCELED", "PARTIAL_CANCELED") and p.status == "done":
         p.status, p.canceled_at, p.cancel_reason = "canceled", now(), f"결제사에서 취소됨({via})"

@@ -31,11 +31,14 @@ export interface Addon {
   options: { label: string; amount: number }[];
 }
 
-/** 장수 구간 가격(계약서 검토) */
-export interface Band { label: string; amount: number }
+/** 장수 구간 가격(계약서 검토). key 는 백엔드 catalog 의 선택지 키, max 는 구간의 마지막 장(없으면 그 이상 전부) */
+export interface Band { key: string; label: string; amount: number; max?: number }
 
-/** 단계별 가격(피의사건 정찰 변호) */
-export interface Rung { label: string; note?: string; amount: number }
+/** 단계별 가격(피의사건 정찰 변호). key 는 백엔드 catalog 의 선택지 키 */
+export interface Rung { key: string; label: string; note?: string; amount: number }
+
+/** 정찰가로 맡는 조건 한 문항 — 문진에서 묻고, 답이 required 와 다르면 개별 상담으로 안내(백엔드 catalog.Screen 과 같게) */
+export interface ScreenQuestion { key: string; question: string; required: string; options: string[] }
 
 /** 상품 상세 "준비하면 좋은 자료" 묶음 */
 export type PrepKey = 'money' | 'lease' | 'litigation' | 'enforcement' | 'settlement' | 'criminal' | 'defense' | 'contract' | 'advisory';
@@ -57,8 +60,11 @@ export interface Service {
   /** tracks·bands·ladder 가 없는 상품의 표기 */
   price?: Price;
   addons?: Addon[];
-  /** 정찰가로 맡는 조건(피의사건 등) */
+  /** 정찰가로 맡는 조건(피의사건 등) — 설명 한 줄과 문진 문항 */
   screening?: string;
+  screenQuestions?: ScreenQuestion[];
+  /** 개수 단위(고소사실 등) — 수임료 = 단가 × 개수(백엔드 catalog.unit_label·max_units 와 같게) */
+  unitCount?: { label: string; max: number };
   /** 진열 카드 우상단의 크라프트 미니태그 */
   tag?: string;
   /** 진열 카드 아래 칩(납기·연계 등) */

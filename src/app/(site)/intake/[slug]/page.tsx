@@ -13,7 +13,7 @@ export default async function IntakePage({ params, searchParams }: PageProps<'/i
   const s = getService((await params).slug);
   const q = await searchParams;
   const from = Number(q.from);
-  const track = q.track === 'self' || q.track === 'atty' ? q.track : undefined;
+  const track = typeof q.track === 'string' ? q.track : undefined; // 상품에 없는 선택지면 문진이 무시한다
   if (!s || s.stage !== 'pilot') notFound();
 
   return (

@@ -18,8 +18,11 @@ def mark_paid(db: Session, p: Payment, *, payment_key: str, data: dict | None, v
     p.method = "시뮬레이션" if p.simulated else (data or {}).get("method")
     p.raw = data
     p.receipt_url = ((data or {}).get("receipt") or {}).get("url")
-    if c.status == CaseStatus.PENDING_PAYMENT:
+    if p.charge is not None:
+        # 추가 요금 결제 — 사건 단계는 그대로 두고 청구만 결제 완료로
+        p.charge.status, p.charge.paid_at = "paid", now()
+    elif c.status == CaseStatus.PENDING_PAYMENT:
         c.status, c.paid_at = CaseStatus.REVIEWING, now()
     record(db, "payment.confirm", actor_id=actor_id, target_type="case", target_id=c.id,
-           detail={"order_id": p.order_id, "amount": p.amount, "simulated": p.simulated, "via": via})
+           detail={"order_id": p.order_id, "amount": p.amount, "simulated": p.simulated, "via": via, "charge_id": p.charge_id})
     return True

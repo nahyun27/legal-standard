@@ -212,6 +212,7 @@ export const SERVICES: Service[] = [
       { kind: 'atty', label: '변호사 명의 고소대리', note: '고소대리인 선임계 제출 포함', amount: 480_000, retainer: true },
     ],
     addons: [{ label: '고소인 조사 출석 동행', per: '1회당', options: APPEAR.options }],
+    unitCount: { label: '고소사실', max: 5 },
     chips: ['5영업일 안에 완성', '불송치 이의신청과 연결'],
     includes: ['고소장 작성', '구성요건·증거목록 검토', '변호사 검토', '1회 수정'],
     excludes: ['피의자 측과의 합의 협상'],
@@ -296,13 +297,18 @@ export const SERVICES: Service[] = [
     summary: '음주운전, 단순 폭행, 초범 사건처럼 사실관계에 다툼이 없는 사건의 양형 변론을 단계별 정찰가로 맡습니다.',
     tag: '피의자 변호',
     ladder: [
-      { label: '수사단계 의견서', note: '양형자료 정리 · 변호인 의견서 제출', amount: 1_100_000 },
-      { label: '수사단계 출석 변호', note: '조사 입회 포함', amount: 2_200_000 },
-      { label: '법원단계 변론', note: '약식명령 이의 · 공판 변론', amount: 3_300_000 },
+      { key: 'opinion', label: '수사단계 의견서', note: '양형자료 정리 · 변호인 의견서 제출', amount: 1_100_000 },
+      { key: 'appear', label: '수사단계 출석 변호', note: '조사 입회 포함', amount: 2_200_000 },
+      { key: 'trial', label: '법원단계 변론', note: '약식명령 이의 · 공판 변론', amount: 3_300_000 },
     ],
     screening: '혐의를 인정하고 사실관계를 다투지 않는 사건, 혐의 1개, 불구속 사건에 한합니다. 진행 중 혐의를 다투게 되면 일반 수임으로 바뀌며, 이미 낸 금액은 전부 빼고 계산합니다.',
+    screenQuestions: [
+      { key: 'confession', question: '혐의를 인정하고 사실관계를 다투지 않나요?', required: '예', options: ['예', '아니오', '잘 모르겠음'] },
+      { key: 'charges', question: '혐의는 몇 개인가요?', required: '1개', options: ['1개', '2개 이상'] },
+      { key: 'custody', question: '구속되었거나 구속영장이 청구되었나요?', required: '아니오', options: ['예', '아니오'] },
+    ],
     prep: 'defense',
-    stage: 'launch',
+    stage: 'pilot',
   },
 
   // ── 자문 ─────────────────────────────────────────────────────
@@ -314,14 +320,14 @@ export const SERVICES: Service[] = [
     summary: '임대차·용역·근로·공급·동업 계약서에 서명하기 전에 조항별 위험을 확인합니다. 조항마다 위험 정도를 표시하고 종합 의견을 드립니다.',
     tag: '분쟁 예방',
     bands: [
-      { label: '1~5장', amount: 90_000 },
-      { label: '6~10장', amount: 150_000 },
-      { label: '11~20장', amount: 300_000 },
-      { label: '20장 초과', amount: 1_000_000 },
+      { key: 'p5', label: '1~5장', amount: 90_000, max: 5 },
+      { key: 'p10', label: '6~10장', amount: 150_000, max: 10 },
+      { key: 'p20', label: '11~20장', amount: 300_000, max: 20 },
+      { key: 'p20plus', label: '20장 초과', amount: 1_000_000 },
     ],
-    chips: ['A4 기준 · 별첨 포함 · 표지 제외', '영문·투자 계약은 개별 견적'],
+    chips: ['A4 기준 · 별첨 포함 · 표지 제외', 'PDF 를 올리면 장수를 세어 구간을 골라 드립니다', '영문·투자 계약은 개별 견적'],
     prep: 'contract',
-    stage: 'launch',
+    stage: 'pilot',
   },
   {
     slug: 'agency-media',
@@ -409,13 +415,37 @@ export function trackOf(s: Service, kind: TrackKind | undefined): Track | undefi
   return s.tracks?.find((t) => t.kind === kind);
 }
 
+/** 주문할 때 고르는 가격 선택지 — 두 방식(tracks)·단계(ladder)·장수 구간(bands)을 한 모양으로. key 는 백엔드 선택지 키 */
+export interface OrderOption { key: string; label: string; amount: number; note?: string; retainer?: boolean; per?: string; max?: number }
+
+export function orderOptions(s: Service): OrderOption[] {
+  if (s.tracks) return s.tracks.map((t) => ({ key: t.kind, label: t.label, amount: t.amount, note: t.note, retainer: t.retainer, per: t.per }));
+  if (s.ladder) return s.ladder.map((r) => ({ key: r.key, label: r.label, amount: r.amount, note: r.note, retainer: true }));
+  if (s.bands) return s.bands.map((b) => ({ key: b.key, label: b.label, amount: b.amount, max: b.max }));
+  return [];
+}
+
+export function optionOf(s: Service, key: string | undefined): OrderOption | undefined {
+  return orderOptions(s).find((o) => o.key === key);
+}
+
+/** 선택지 고르기의 제목 */
+export function optionTitle(s: Service): string {
+  return s.ladder ? '맡길 단계' : s.bands ? '계약서 장수' : '진행 방식';
+}
+
+/** 장수로 구간 고르기(계약서 검토) */
+export function bandFor(s: Service, pages: number): OrderOption | undefined {
+  return orderOptions(s).find((o) => o.max === undefined || pages <= o.max);
+}
+
 /**
  * 방식별 금액. 고른 방식이 없는 상품(한 방식만 있는 상품)은 있는 방식 가격을 쓴다.
  * 장수 구간·단계별 가격은 [가장 낮은 값, 가장 높은 값], 견적·미정은 null.
  */
-export function amountRange(s: Service, kind?: TrackKind): [number, number] | null {
+export function amountRange(s: Service, kind?: string): [number, number] | null {
   if (s.tracks?.length) {
-    const t = trackOf(s, kind) ?? s.tracks[0];
+    const t = s.tracks.find((x) => x.kind === kind) ?? s.tracks[0];
     return [t.amount, t.amount];
   }
   const list = s.bands ?? s.ladder;

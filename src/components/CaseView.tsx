@@ -3,12 +3,12 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { CheckCircle2, Download, FileText, Paperclip } from 'lucide-react';
+import { CheckCircle2, Download, FileSignature, FileText, Paperclip } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import PaymentConsent from '@/components/PaymentConsent';
 import { PageHero } from '@/components/ui';
 import { getService, serviceTitle } from '@/data/services';
-import { ApiError, api, fileUrl, fmtDate, fmtSize, upload, type CaseDetail, type CaseStatus } from '@/lib/api';
+import { ApiError, api, fileUrl, fmtDate, fmtSize, upload, type CaseDetail, type CaseStatus, type Charge, type RetainerDoc } from '@/lib/api';
 import { priceText, won } from '@/lib/format';
 import { startPayment, type Consents, type PayMethod } from '@/lib/payment';
 
@@ -55,11 +55,11 @@ export default function CaseView({ id, justPaid }: { id: number; justPaid: boole
     }
   }
 
-  async function pay() {
+  async function pay(chargeId?: number) {
     setError(null);
     setBusy('결제창을 여는 중…');
     try {
-      const r = await startPayment(id, consents, method);
+      const r = await startPayment(id, consents, method, chargeId);
       if (r !== 'redirected' && r !== 'canceled') setC(r);
     } catch (e) {
       setError((e as Error).message);
@@ -133,6 +133,14 @@ export default function CaseView({ id, justPaid }: { id: number; justPaid: boole
             </div>
           )}
 
+          {c.retainer && ['in_progress', 'lawyer_review', 'approved', 'delivered'].includes(c.status) && (
+            <RetainerCard caseId={c.id} signedAt={c.retainer.signed_at} clientName={c.intake.client_name ?? ''} onSigned={setC} />
+          )}
+
+          {c.charges.length > 0 && (
+            <ChargesCard charges={c.charges} busy={!!busy} consents={consents} onConsents={setConsents} method={method} onMethod={setMethod} onPay={pay} />
+          )}
+
           {c.status === 'delivered' && (
             <div className="card">
               <h3>완성된 서면</h3>
@@ -191,7 +199,7 @@ export default function CaseView({ id, justPaid }: { id: number; justPaid: boole
             {c.status === 'pending_payment' && c.total > 0 && (
               <div style={{ display: 'grid', gap: 8, marginTop: 14 }}>
                 <PaymentConsent value={consents} onChange={setConsents} method={method} onMethod={setMethod} />
-                <button className="btn btn-primary" onClick={pay} disabled={!!busy || !consents.agree_engagement || !consents.agree_withdrawal}>{won(c.total)} 결제하기</button>
+                <button className="btn btn-primary" onClick={() => pay()} disabled={!!busy || !consents.agree_engagement || !consents.agree_withdrawal}>{won(c.total)} 결제하기</button>
                 <button className="link-btn" onClick={cancel}>접수 취소</button>
               </div>
             )}
@@ -217,5 +225,103 @@ export default function CaseView({ id, justPaid }: { id: number; justPaid: boole
       </div>
     </div>
     </>
+  );
+}
+
+/**
+ * 전자 수임약정 — 변호사 명의로 진행하는 사건은 수임 확정 뒤 여기서 약정 내용을 확인하고 서명한다.
+ * 서명하면 문안 버전·본문 해시·시각이 사건에 남고, 그 전에는 변호사가 검수를 마칠 수 없다.
+ */
+function RetainerCard({ caseId, signedAt, clientName, onSigned }: {
+  caseId: number; signedAt: string | null; clientName: string; onSigned: (c: CaseDetail) => void;
+}) {
+  const [doc, setDoc] = useState<RetainerDoc | null>(null);
+  const [open, setOpen] = useState(!signedAt);
+  const [name, setName] = useState('');
+  const [agree, setAgree] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open && !doc) api<RetainerDoc>(`/cases/${caseId}/retainer`).then(setDoc).catch((e) => setError((e as Error).message));
+  }, [open, doc, caseId]);
+
+  async function sign() {
+    if (!doc) return;
+    setBusy(true);
+    setError(null);
+    try {
+      onSigned(await api<CaseDetail>(`/cases/${caseId}/retainer`, { method: 'POST', body: JSON.stringify({ name, agree, sha256: doc.sha256 }) }));
+      setOpen(false);
+    } catch (e) {
+      setError((e as Error).message);
+      setDoc(null); // 문안이 바뀌었으면(409) 새로 받는다
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className={`card retainer-card${signedAt ? '' : ' needs-sign'}`}>
+      <h3><FileSignature size={18} /> 수임약정</h3>
+      {signedAt ? (
+        <p>{fmtDate(signedAt, true)}에 전자 서명했습니다. <button className="link-btn" onClick={() => setOpen(!open)}>{open ? '접기' : '약정서 보기'}</button></p>
+      ) : (
+        <p>변호사 명의로 진행하려면 수임약정에 서명해 주세요. 서명하신 뒤 담당 변호사가 서면을 확정하고 제출합니다.</p>
+      )}
+      {open && (
+        !doc ? (error ? <p className="form-error">{error}</p> : <div className="spinner" style={{ margin: '16px auto' }} />) : (
+          <>
+            <pre className="retainer-text" tabIndex={0}>{doc.text}</pre>
+            {!signedAt && (
+              <div className="retainer-sign">
+                <label className="consent"><input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} /> 위 수임약정 내용을 확인했고 이에 동의합니다.</label>
+                <div className="field" style={{ marginBottom: 0 }}>
+                  <label htmlFor="rs">서명(의뢰인 성명 입력)</label>
+                  <input id="rs" value={name} onChange={(e) => setName(e.target.value)} placeholder={clientName} autoComplete="name" />
+                  <span className="hint">문진에 적은 의뢰인 성명과 같게 입력하면 전자 서명으로 기록됩니다.</span>
+                </div>
+                {error && <p className="form-error" role="alert">{error}</p>}
+                <button className="btn btn-primary" disabled={busy || !agree || name.trim().length < 2} onClick={sign}>수임약정 서명하기</button>
+              </div>
+            )}
+          </>
+        )
+      )}
+    </div>
+  );
+}
+
+/** 추가 요금(기일·조사 출석) — 담당 변호사가 정찰가로 청구하면 여기서 확인하고 결제한다. */
+function ChargesCard({ charges, busy, consents, onConsents, method, onMethod, onPay }: {
+  charges: Charge[]; busy: boolean; consents: Consents; onConsents: (c: Consents) => void;
+  method: PayMethod; onMethod: (m: PayMethod) => void; onPay: (chargeId: number) => void;
+}) {
+  const pending = charges.filter((x) => x.status === 'pending');
+  return (
+    <div className="card">
+      <h3>추가 요금</h3>
+      <p className="sub" style={{ marginBottom: 10 }}>상품 페이지에 공개된 정찰가로만 청구합니다. 결제하신 뒤 해당 일정에 진행합니다.</p>
+      <table className="table compact">
+        <tbody>
+          {charges.map((x) => (
+            <tr key={x.id}>
+              <td><b>{x.label}</b>{x.note && <span className="sub" style={{ display: 'block' }}>{x.note}</span>}</td>
+              <td className="num">{won(x.total)}<span className="sub" style={{ display: 'block' }}>{x.status === 'paid' ? `결제 완료 ${x.paid_at ? fmtDate(x.paid_at) : ''}` : 'VAT 포함 · 결제 대기'}</span></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {pending.length > 0 && (
+        <div style={{ display: 'grid', gap: 8, marginTop: 14 }}>
+          <PaymentConsent value={consents} onChange={onConsents} method={method} onMethod={onMethod} />
+          {pending.map((x) => (
+            <button key={x.id} className="btn btn-primary" disabled={busy || !consents.agree_engagement || !consents.agree_withdrawal} onClick={() => onPay(x.id)}>
+              {x.label} {won(x.total)} 결제하기
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

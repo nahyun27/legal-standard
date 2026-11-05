@@ -233,7 +233,7 @@ def test_conflict_normalized_and_firm_list(client, db):
 
 def test_review_time_measured_from_lawyer_open(client, db):
     make_user(client, db, "고객")
-    c = new_case(client)
+    c = new_case(client, track="self")  # 수임약정 서명 단계가 없는 방식으로 검수시간만 잰다
     pay(client, c["id"])
     lawyer = staff(client, db)
     client.post(f"/api/v1/admin/cases/{c['id']}/accept", json={"lawyer_id": lawyer.id, "conflict_checked": True})

@@ -50,8 +50,8 @@ class Quote:
         return self.fee + self.vat + self.costs_total
 
 
-def quote(product: Product, claim_amount: int | None, track: str | None = None) -> Quote:
-    fee = product.fee(track)
+def quote(product: Product, claim_amount: int | None, track: str | None = None, units: int = 1) -> Quote:
+    fee = product.fee(track, units)
     vat = fee // 10
     unit = settings.COURT_SERVICE_UNIT_KRW
     costs: list[CostLine] = []

@@ -5,7 +5,6 @@
  * 기본은 같은 주소의 /api/v1 (src/app/api/v1/[...path]/route.ts 가 백엔드로 넘긴다). 백엔드를 다른 도메인에 따로 둘 때만
  * NEXT_PUBLIC_API_BASE_URL 을 지정한다 — 그 경우엔 백엔드 CORS_ORIGINS 와 쿠키 도메인을 맞춰야 한다.
  */
-import type { TrackKind } from '@/data/types';
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? '';
 const V1 = `${API_BASE}/api/v1`;
@@ -94,7 +93,8 @@ export interface CostLine {
 export interface Quote {
   service_slug: string;
   service_name: string;
-  track: TrackKind | null;
+  track: string | null;
+  units: number;
   is_quote: boolean;
   fee: number;
   vat: number;
@@ -114,12 +114,37 @@ export interface CaseFile {
 export type CaseStatus =
   | 'pending_payment' | 'reviewing' | 'in_progress' | 'lawyer_review' | 'approved' | 'delivered' | 'rejected' | 'canceled';
 
+/** 수임 후 추가 요금(기일·조사 출석) 청구 */
+export interface Charge {
+  id: number;
+  label: string;
+  option: string;
+  note: string | null;
+  fee: number;
+  vat: number;
+  total: number;
+  status: 'pending' | 'paid' | 'canceled';
+  created_at: string;
+  paid_at: string | null;
+}
+
+export interface RetainerDoc {
+  version: string;
+  text: string;
+  sha256: string;
+  signed: { version: string; signed_at: string; name: string; sha256: string } | null;
+}
+
 export interface CaseDetail {
   id: number;
   case_no: string;
   service_slug: string;
   service_name: string;
-  track: TrackKind | null;
+  track: string | null;
+  units: number;
+  /** 전자 수임약정 — 필요 없는 사건이면 null */
+  retainer: { required: boolean; signed_at: string | null; version: string | null } | null;
+  charges: Charge[];
   status: CaseStatus;
   status_label: string;
   opponent_name: string | null;

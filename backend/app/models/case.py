@@ -43,8 +43,13 @@ class Case(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     service_slug: Mapped[str] = mapped_column(String(40), nullable=False)
     service_name: Mapped[str] = mapped_column(String(80), nullable=False)
-    # 진행 방식 — self(본인 명의로 직접 제출·발송) / atty(변호사 명의). 개별 견적 사건은 None
+    # 고른 가격 선택지 — 두 방식 상품은 self(본인 명의로 직접 제출·발송) / atty(변호사 명의),
+    # 단계·장수 구간 상품은 catalog 의 선택지 키(예: opinion, p10). 개별 견적 사건은 None
     track: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    # 개수 단위 상품(고소장 = 고소사실 수)의 개수. 수임료 = 단가 × units
+    units: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+    # 전자 수임약정 서명 — {"version", "signed_at", "name", "ip", "sha256"}. 수임약정이 필요한 선택지만
+    retainer: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default=CaseStatus.PENDING_PAYMENT, index=True)
 
     # 문진 원문(상품별 문항). 사건 정보는 비밀유지 대상 — 외부 AI 학습·다른 목적 재사용 금지(기획서 X-4).
@@ -94,6 +99,7 @@ class Case(Base):
 
     files: Mapped[list["CaseFile"]] = relationship(back_populates="case", order_by="CaseFile.id")
     payments: Mapped[list["Payment"]] = relationship(back_populates="case", order_by="Payment.id")
+    charges: Mapped[list["Charge"]] = relationship(back_populates="case", order_by="Charge.id")
 
     @property
     def case_no(self) -> str:
@@ -142,6 +148,32 @@ class Payment(Base):
     cancel_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     raw: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     receipt_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # 추가 요금 결제면 그 청구 id. 없으면 사건 본 결제
+    charge_id: Mapped[int | None] = mapped_column(ForeignKey("charges.id"), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     case: Mapped[Case] = relationship(back_populates="payments")
+    charge: Mapped["Charge | None"] = relationship(back_populates="payments")
+
+
+class Charge(Base):
+    """수임 후 생기는 추가 요금(기일·조사 출석 등). 금액은 catalog 의 정찰가 선택지로만 정한다 — 변호사가 임의로 못 바꾼다."""
+
+    __tablename__ = "charges"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    case_id: Mapped[int] = mapped_column(ForeignKey("cases.id", ondelete="CASCADE"), nullable=False, index=True)
+    addon: Mapped[str] = mapped_column(String(40), nullable=False)   # catalog Addon.key
+    option: Mapped[str] = mapped_column(String(40), nullable=False)  # 예: 수도권
+    label: Mapped[str] = mapped_column(String(120), nullable=False)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)    # 기일·장소 등 고객에게 보이는 안내
+    fee: Mapped[int] = mapped_column(Integer, nullable=False)
+    vat: Mapped[int] = mapped_column(Integer, nullable=False)
+    total: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")  # pending | paid | canceled
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    case: Mapped[Case] = relationship(back_populates="charges")
+    payments: Mapped[list[Payment]] = relationship(back_populates="charge", order_by="Payment.id")

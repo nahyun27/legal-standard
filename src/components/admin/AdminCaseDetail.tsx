@@ -6,13 +6,18 @@ import { AlertTriangle, Download, FileText, Paperclip, ShieldCheck } from 'lucid
 import { useStaff } from '@/components/admin/AdminShell';
 import { useReason } from '@/components/admin/ReasonDialog';
 import { ACTION_LABEL, AdminHead, StatusPill } from '@/components/admin/ui';
-import { api, fileUrl, fmtDate, fmtSize, upload, type CostLine } from '@/lib/api';
+import { api, fileUrl, fmtDate, fmtSize, upload, type Charge, type CostLine } from '@/lib/api';
 import { won } from '@/lib/format';
 
 interface Detail {
   id: number; case_no: string; service_name: string; status: string; status_label: string;
   client_name: string | null; opponent_name: string | null; total: number; fee: number; vat: number; costs: CostLine[];
-  claim_amount: number | null; intake: { client_name?: string; phone?: string; facts?: string; answers?: Record<string, string> };
+  claim_amount: number | null; units: number;
+  intake: { client_name?: string; phone?: string; facts?: string; answers?: Record<string, string>; screening?: Record<string, string> };
+  retainer: { required: boolean; signed_at: string | null; version: string | null } | null;
+  retainer_record: { version: string; signed_at: string; name: string; ip: string | null; sha256: string } | null;
+  charges: Charge[];
+  addons: { key: string; label: string; per: string; options: Record<string, number> }[];
   client: { id: number; name: string; phone: string; email: string | null } | null; source: string | null;
   lawyer_id: number | null; lawyer_name: string | null; reviewer_name: string | null; approved_file_id: number | null;
   checklist: string[]; review_checklist: string[] | null; reject_reason: string | null; delivery_note: string | null;
@@ -30,7 +35,7 @@ interface Detail {
 }
 
 const PAY_STATUS: Record<string, string> = { ready: '결제 시도', done: '결제 완료', canceled: '환불', failed: '실패' };
-const NOTIFY_EVENT: Record<string, string> = { paid: '결제 완료', accepted: '수임 확정', rejected: '불성립·환불', delivered: '발송 완료', reminder: '결제 대기 안내', quoted: '견적 안내' };
+const NOTIFY_EVENT: Record<string, string> = { paid: '결제 완료', accepted: '수임 확정', rejected: '불성립·환불', delivered: '발송 완료', reminder: '결제 대기 안내', quoted: '견적 안내', retainer: '수임약정 서명 요청', charge: '추가 요금 청구' };
 const NOTIFY_STATUS: Record<string, string> = { sent: '발송', skipped: '미발송(채널 없음)', failed: '실패' };
 
 interface Citation { kind: string; ref: string; status: 'found' | 'not_found' | 'unknown'; message: string }
@@ -51,6 +56,9 @@ export default function AdminCaseDetail({ id }: { id: number }) {
   const [checked, setChecked] = useState<string[]>([]);
   const [note, setNote] = useState('');
   const [memo, setMemo] = useState('');
+  const [addonKey, setAddonKey] = useState('');
+  const [addonOpt, setAddonOpt] = useState('');
+  const [chargeNote, setChargeNote] = useState('');
   const fileInput = useRef<HTMLInputElement>(null);
 
   const load = useCallback(() => api<Detail>(`/admin/cases/${id}`).then((d) => { setC(d); setChecked([]); }).catch((e) => setError((e as Error).message)), [id]);
@@ -175,6 +183,11 @@ export default function AdminCaseDetail({ id }: { id: number }) {
                     <FileText size={17} /><span>검수 대상: {latestDoc.filename}</span><small>{fmtDate(latestDoc.created_at, true)}</small><Download size={15} />
                   </a>
                 )}
+                {c.retainer && !c.retainer.signed_at && (
+                  <p className="banner banner-warn" style={{ marginBottom: 12 }}>
+                    <AlertTriangle size={16} /> 의뢰인이 전자 수임약정에 아직 서명하지 않았습니다. 서명 전에는 검수를 마칠 수 없습니다(고객에게 서명 요청 알림을 보냈습니다).
+                  </p>
+                )}
                 {staff.is_lawyer ? (
                   <>
                     <div className="checklist">
@@ -230,6 +243,58 @@ export default function AdminCaseDetail({ id }: { id: number }) {
             {c.status === 'rejected' && <p>수임 불성립: {c.reject_reason}</p>}
           </section>
 
+          {(c.retainer || c.addons.length > 0 || c.charges.length > 0) && (
+            <section className="admin-card">
+              <h2>수임약정 · 추가 요금</h2>
+              {c.retainer && (
+                <p style={{ marginBottom: 12 }}>
+                  <b>전자 수임약정</b>{' '}
+                  {c.retainer_record
+                    ? <>서명 {fmtDate(c.retainer_record.signed_at, true)} · {c.retainer_record.name} · 문안 {c.retainer_record.version} · IP {c.retainer_record.ip ?? '—'} <span className="sub mono">({c.retainer_record.sha256.slice(0, 12)}…)</span></>
+                    : <span className="sub">미서명 — 수임 확정 뒤 고객이 내 사건에서 서명합니다</span>}
+                </p>
+              )}
+              {c.charges.length > 0 && (
+                <table className="table compact" style={{ marginBottom: 12 }}>
+                  <tbody>
+                    {c.charges.map((x) => (
+                      <tr key={x.id}>
+                        <td><b>{x.label}</b><span className="sub" style={{ display: 'block' }}>{x.note}</span></td>
+                        <td className="num">{won(x.total)}</td>
+                        <td>{x.status === 'paid' ? '결제 완료' : x.status === 'canceled' ? '취소' : (
+                          <>결제 대기 <button className="link-btn" disabled={busy} onClick={async () => { const r = await ask({ title: '추가 요금 취소', description: '결제 전 청구만 취소할 수 있습니다.', placeholder: '예: 기일 변경', confirmLabel: '청구 취소' }); if (r) act(`charges/${x.id}/cancel`, { reason: r }); }}>취소</button></>
+                        )}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              {c.addons.length > 0 && ['in_progress', 'lawyer_review', 'approved', 'delivered'].includes(c.status) && (staff.is_lawyer ? (
+                <div className="charge-form">
+                  <h3 className="sub-h">추가 요금 청구</h3>
+                  <div className="action-row">
+                    <select value={addonKey} onChange={(e) => { setAddonKey(e.target.value); setAddonOpt(''); }}>
+                      <option value="">항목 선택</option>
+                      {c.addons.map((a) => <option key={a.key} value={a.key}>{a.label} ({a.per})</option>)}
+                    </select>
+                    <select value={addonOpt} onChange={(e) => setAddonOpt(e.target.value)} disabled={!addonKey}>
+                      <option value="">지역 선택</option>
+                      {Object.entries(c.addons.find((a) => a.key === addonKey)?.options ?? {}).map(([k, v]) => <option key={k} value={k}>{k} {won(v)} (VAT 별도)</option>)}
+                    </select>
+                  </div>
+                  <div className="field" style={{ marginTop: 10 }}>
+                    <input value={chargeNote} onChange={(e) => setChargeNote(e.target.value)} placeholder="예: 11/20(목) 14:00 서초경찰서 고소인 조사" />
+                    <span className="hint">일시·장소를 적으면 고객에게 그대로 보입니다. 금액은 상품의 정찰가로 정해집니다.</span>
+                  </div>
+                  <button className="btn btn-ghost" disabled={busy || !addonKey || !addonOpt || chargeNote.trim().length < 2}
+                    onClick={async () => { await act('charges', { addon: addonKey, option: addonOpt, note: chargeNote }); setAddonKey(''); setAddonOpt(''); setChargeNote(''); }}>
+                    청구하기
+                  </button>
+                </div>
+              ) : lawyerOnly)}
+            </section>
+          )}
+
           <section className="admin-card">
             <h2>문진</h2>
             <dl className="profile" style={{ gridTemplateColumns: '90px 1fr' }}>
@@ -237,7 +302,9 @@ export default function AdminCaseDetail({ id }: { id: number }) {
               <dt>상대방</dt><dd>{c.opponent_name ?? '—'}</dd>
               {c.claim_amount !== null && <><dt>청구 금액</dt><dd>{won(c.claim_amount)}</dd></>}
               <dt>사실관계</dt><dd style={{ whiteSpace: 'pre-wrap' }}>{c.intake.facts || '—'}</dd>
+              {c.units > 1 && <><dt>개수</dt><dd>{c.units}개</dd></>}
               {Object.entries(c.intake.answers ?? {}).map(([k, v]) => <Fragment key={k}><dt>{k}</dt><dd>{v}</dd></Fragment>)}
+              {Object.entries(c.intake.screening ?? {}).map(([k, v]) => <Fragment key={`s-${k}`}><dt>수임 조건 {k}</dt><dd>{v}</dd></Fragment>)}
             </dl>
           </section>
 

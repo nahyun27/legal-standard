@@ -37,6 +37,7 @@ export const ACTION_LABEL: Record<string, string> = {
   'user.view': '회원 정보 열람', 'user.suspend': '이용 정지', 'user.unsuspend': '정지 해제', 'user.roles': '권한 변경',
   'case.quote': '견적 발송', 'case.citations': '인용 확인', 'case.expire': '결제 대기 자동 취소',
   'payment.mismatch': '결제 금액 불일치', 'payment.canceled_external': '결제사 취소',
+  'case.retainer_sign': '수임약정 서명', 'case.charge': '추가 요금 청구', 'case.charge_cancel': '추가 요금 취소',
   'mfa.enable': '2단계 인증 등록', 'mfa.fail': '2단계 인증 실패', 'mfa.reset': '2단계 인증 초기화', 'conflict_list.replace': '이해충돌 명단 교체',
 };
 

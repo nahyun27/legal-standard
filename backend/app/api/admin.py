@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Reques
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app.api.cases import file_dict
+from app.api.cases import charge_dict, file_dict, retainer_state
 from app.core import citations, mfa, storage, toss
 from app.core.audit import record
 from app.core.catalog import get_product
@@ -24,10 +24,10 @@ from app.core.deps import get_current_user
 from app.core.notify import notify
 from app.core.timeutil import add_business_days, aware, kst_day_start, now
 from app.models.audit import AuditLog
-from app.models.case import OPEN_STATUSES, STATUS_LABEL, Case, CaseFile, CaseStatus, Payment
+from app.models.case import OPEN_STATUSES, STATUS_LABEL, Case, CaseFile, CaseStatus, Charge, Payment
 from app.models.ops import ConflictParty, Notification
 from app.models.user import User
-from app.schemas.case import AcceptIn, ApproveIn, CitationIn, DeliverIn, MfaCodeIn, NoteIn, QuoteIn, ReasonIn, RolesIn
+from app.schemas.case import AcceptIn, ApproveIn, ChargeIn, CitationIn, DeliverIn, MfaCodeIn, NoteIn, QuoteIn, ReasonIn, RolesIn
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -369,6 +369,9 @@ def case_detail(case_id: int, request: Request, staff: User = Depends(get_staff_
         "children": [{"id": x.id, "case_no": x.case_no, "service_name": x.service_name, "status_label": x.status_label} for x in children],
         "notifications": [{"id": n.id, "event": n.event, "channel": n.channel, "to": n.to, "status": n.status, "error": n.error, "created_at": n.created_at} for n in notes],
         "is_quote": bool(product and product.is_quote),
+        "units": c.units, "retainer": retainer_state(c), "retainer_record": c.retainer,
+        "charges": [charge_dict(x) for x in c.charges],
+        "addons": [{"key": a.key, "label": a.label, "per": a.per, "options": a.options} for a in (product.addons if product else ())],
         "logs": logs_for(db, "case", c.id),
     }
 
@@ -401,6 +404,8 @@ def accept(case_id: int, payload: AcceptIn, request: Request, staff: User = Depe
            detail={"lawyer_id": lawyer.id, "conflicts_shown": len(find_conflicts(db, c)), "due_at": c.due_at.isoformat()}, request=request)
     db.commit()
     notify(db, db.get(User, c.user_id), "accepted", c)
+    if product and product.needs_retainer(c.track):
+        notify(db, db.get(User, c.user_id), "retainer", c)
     return case_row(c, db)
 
 
@@ -464,6 +469,8 @@ def approve(case_id: int, payload: ApproveIn, request: Request, staff: User = De
     if not staff.is_lawyer:
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="검수 완료는 변호사만 할 수 있습니다.")
     product = get_product(c.service_slug)
+    if product and product.needs_retainer(c.track) and not c.retainer:
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="의뢰인이 전자 수임약정에 아직 서명하지 않았습니다. 서명 후 검수를 마칠 수 있습니다.")
     required = set(product.checklist_for(c.track) if product else ())
     if not required.issubset(set(payload.checklist)):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="검수 체크리스트를 모두 확인해 주세요.")
@@ -502,6 +509,45 @@ def deliver(case_id: int, payload: DeliverIn, request: Request, staff: User = De
     db.commit()
     notify(db, db.get(User, c.user_id), "delivered", c)
     return case_row(c, db)
+
+
+@router.post("/cases/{case_id}/charges")
+def create_charge(case_id: int, payload: ChargeIn, request: Request, staff: User = Depends(get_staff_user), db: Session = Depends(get_db)) -> dict:
+    """추가 요금 청구(기일·조사 출석) — 금액은 catalog 의 정찰가 선택지로만. 고객이 내 사건에서 결제한다."""
+    c = staff_case(db, case_id)
+    if c.status not in (CaseStatus.IN_PROGRESS, CaseStatus.LAWYER_REVIEW, CaseStatus.APPROVED, CaseStatus.DELIVERED):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="수임이 확정된 사건에만 추가 요금을 청구할 수 있습니다.")
+    if not staff.is_lawyer:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="추가 요금 청구는 변호사만 할 수 있습니다.")
+    product = get_product(c.service_slug)
+    addon = product.addon(payload.addon) if product else None
+    if addon is None or payload.option not in addon.options:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="이 상품에 정해진 추가 요금이 아닙니다.")
+    fee = addon.options[payload.option]
+    ch = Charge(case_id=c.id, addon=addon.key, option=payload.option, label=f"{addon.label} ({payload.option})",
+                note=payload.note, fee=fee, vat=fee // 10, total=fee + fee // 10, created_by=staff.id)
+    db.add(ch)
+    db.flush()
+    record(db, "case.charge", actor_id=staff.id, target_type="case", target_id=c.id, reason=payload.note,
+           detail={"charge_id": ch.id, "addon": addon.key, "option": payload.option, "total": ch.total}, request=request)
+    db.commit()
+    notify(db, db.get(User, c.user_id), "charge", c)
+    return charge_dict(ch)
+
+
+@router.post("/cases/{case_id}/charges/{charge_id}/cancel")
+def cancel_charge(case_id: int, charge_id: int, payload: ReasonIn, request: Request, staff: User = Depends(get_staff_user), db: Session = Depends(get_db)) -> dict:
+    """결제 전 청구만 취소한다(결제 후 환불은 결제사 취소로 따로 처리)."""
+    c = staff_case(db, case_id)
+    ch = db.get(Charge, charge_id)
+    if ch is None or ch.case_id != c.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="청구를 찾을 수 없습니다.")
+    if ch.status != "pending":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="결제 전 청구만 취소할 수 있습니다.")
+    ch.status = "canceled"
+    record(db, "case.charge_cancel", actor_id=staff.id, target_type="case", target_id=c.id, reason=payload.reason, detail={"charge_id": ch.id}, request=request)
+    db.commit()
+    return charge_dict(ch)
 
 
 @router.post("/cases/{case_id}/quote")

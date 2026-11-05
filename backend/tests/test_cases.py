@@ -115,7 +115,17 @@ def full_flow_until_review(client, db):
     up = client.post(f"/api/v1/admin/cases/{c['id']}/files", data={"kind": "document"}, files={"file": ("지급명령신청서.pdf", io.BytesIO(b"DRAFT"), "application/pdf")})
     assert up.status_code == 200, up.text
     assert client.post(f"/api/v1/admin/cases/{c['id']}/submit-review").status_code == 200
+    sign_retainer(client, c["id"])  # 변호사 명의 사건은 의뢰인 서명이 있어야 검수를 마칠 수 있다
+    login_as(client, "변호사")
     return c, lawyer, up.json()["id"]
+
+
+def sign_retainer(client, case_id, customer="고객"):
+    login_as(client, customer)
+    doc = client.get(f"/api/v1/cases/{case_id}/retainer").json()
+    r = client.post(f"/api/v1/cases/{case_id}/retainer", json={"name": INTAKE["client_name"], "agree": True, "sha256": doc["sha256"]})
+    assert r.status_code == 200, r.text
+    return r.json()
 
 
 def test_customer_cannot_download_document_before_delivery(client, db):

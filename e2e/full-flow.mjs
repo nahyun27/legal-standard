@@ -107,6 +107,22 @@ try {
   await staff.waitForSelector('button:has-text("검수 요청"):not([disabled])');
   await staff.click('button:has-text("검수 요청")');
   await staff.waitForSelector('.checklist');
+  expect(await staff.locator('.action-card .banner-warn:has-text("수임약정")').count() === 1, '의뢰인 서명 전에는 수임약정 미서명 경고가 보인다');
+
+  // ── 고객: 변호사 명의 사건이라 수임 확정 뒤 전자 수임약정에 서명 ──
+  await customer.goto(`${B}/my/cases/${caseId}`, { waitUntil: 'networkidle' });
+  await customer.waitForSelector('.retainer-text');
+  expect((await customer.locator('.retainer-text').innerText()).includes('250,000원'), '수임약정 문안에 사건 수임료가 들어 있다');
+  await customer.check('.retainer-sign .consent input');
+  await customer.fill('#rs', '박고객');
+  await customer.click('button:has-text("수임약정 서명하기")');
+  await customer.waitForSelector('.retainer-card:has-text("전자 서명했습니다")');
+  ok('고객이 수임약정에 전자 서명한다');
+
+  // ── 직원: 추가 요금 청구(지급명령에는 정해진 추가 요금이 없다 — 화면에 청구 양식이 없어야 한다) ──
+  await staff.reload({ waitUntil: 'networkidle' });
+  await staff.waitForSelector('.checklist');
+  expect(await staff.locator('.charge-form').count() === 0, '정해진 추가 요금이 없는 상품에는 청구 양식이 없다');
   await staff.fill('.cite-box textarea', '대법원 2019다12345 판결, 민법 제750조');
   await staff.click('.cite-box button');
   await staff.waitForSelector('.cite-list li .cite-badge');

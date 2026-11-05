@@ -10,12 +10,13 @@ SERVICES_TS = Path(__file__).resolve().parents[2] / "src" / "data" / "services.t
 
 
 def frontend_prices() -> dict[str, dict[str, int]]:
-    """SERVICES 배열을 상품 블록(들여쓰기 2칸의 '{' 로 시작)으로 잘라 각 블록의 slug 와 방식별 정찰가를 읽는다."""
+    """SERVICES 배열을 상품 블록(들여쓰기 2칸의 '{' 로 시작)으로 잘라 각 블록의 slug 와 선택지별 정찰가를 읽는다."""
     src = SERVICES_TS.read_text(encoding="utf-8")
     out = {}
     for block in re.split(r"^  \{$", src, flags=re.M)[1:]:
         slug = re.search(r"^    slug: '([\w-]+)',$", block, re.M)
-        tracks = re.findall(r"\{ kind: '(self|atty)',[^\n]*?amount: ([\d_]+)", block)
+        # 두 방식은 kind, 단계·장수 구간은 key 가 서버 선택지 키다
+        tracks = re.findall(r"\{ (?:kind|key): '([\w]+)',[^\n]*?amount: ([\d_]+)", block)
         if slug and tracks:
             out[slug.group(1)] = {k: int(a.replace("_", "")) for k, a in tracks}
     return out
