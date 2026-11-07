@@ -6,7 +6,7 @@
 
 import csv
 import io
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 from math import ceil
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile, status
@@ -22,7 +22,7 @@ from app.core.conflict import find_conflicts, name_key
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.core.notify import notify
-from app.core.timeutil import add_business_days, aware, kst_day_start, now
+from app.core.timeutil import KST, add_business_days, aware, kst_day_start, now
 from app.models.audit import AuditLog
 from app.models.case import OPEN_STATUSES, STATUS_LABEL, Case, CaseFile, CaseStatus, Charge, Payment
 from app.models.ops import ConflictParty, Notification
@@ -160,6 +160,161 @@ def kpis(db: Session, since) -> dict:
         "followup_rate": round(followups / finished * 100) if finished else None,
         "followups": followups,
     }
+
+
+# ---------- 통계 리포트 -------------------------------------------------------
+# 기간별 추이·구성. 매출 정보라 관리자만. 날짜는 한국 시각 기준으로 묶는다.
+
+def _bucket(dt, unit: str) -> str:
+    d = aware(dt).astimezone(KST).date()
+    if unit == "week":
+        d = d - timedelta(days=d.weekday())  # 월요일 시작
+    if unit == "month":
+        return d.strftime("%Y-%m")
+    return d.isoformat()
+
+
+def _buckets(since, unit: str) -> list[str]:
+    keys: list[str] = []
+    d = aware(since).astimezone(KST).date()
+    end = now().astimezone(KST).date()
+    while d <= end:
+        k = _bucket(datetime.combine(d, time.min, tzinfo=KST), unit)
+        if k not in keys:
+            keys.append(k)
+        d += timedelta(days=1)
+    return keys
+
+
+@router.get("/stats/report")
+def stats_report(days: int = Query(default=30, ge=7, le=366), _: User = Depends(get_admin_user), db: Session = Depends(get_db)) -> dict:
+    since = kst_day_start(days - 1)
+    unit = "day" if days <= 31 else "week" if days <= 120 else "month"
+    keys = _buckets(since, unit)
+    series = {k: {"key": k, "revenue": 0, "charges": 0, "refunds": 0, "signups": 0, "paid_cases": 0} for k in keys}
+
+    def add(dt, field: str, v: int = 1) -> None:
+        k = _bucket(dt, unit)
+        if k in series:
+            series[k][field] += v
+
+    pays = db.scalars(select(Payment).where(Payment.approved_at >= since)).all()
+    for p in pays:
+        if p.approved_at:
+            add(p.approved_at, "charges" if p.charge_id else "revenue", p.amount)
+    refunds = db.scalars(select(Payment).where(Payment.status == "canceled", Payment.canceled_at >= since)).all()
+    for p in refunds:
+        add(p.canceled_at, "refunds", p.amount)
+    signups = db.scalars(select(User).where(User.created_at >= since)).all()
+    for u in signups:
+        add(u.created_at, "signups")
+    paid_cases = db.scalars(select(Case).where(Case.paid_at >= since)).all()
+    for c in paid_cases:
+        add(c.paid_at, "paid_cases")
+
+    gross = sum(p.amount for p in pays if p.approved_at)
+    refunded = sum(p.amount for p in refunds)
+
+    # 상품·방식별(이 기간에 결제된 사건 기준, 본 결제 금액)
+    by_service: dict[str, dict] = {}
+    by_track: dict[str, dict] = {}
+    for c in paid_cases:
+        prod = get_product(c.service_slug)
+        row = by_service.setdefault(c.service_slug, {"slug": c.service_slug, "name": prod.name if prod else c.service_slug, "count": 0, "amount": 0})
+        row["count"] += 1
+        row["amount"] += c.total
+        tk = c.track if c.track in ("self", "atty") else "other"
+        t = by_track.setdefault(tk, {"track": tk, "count": 0, "amount": 0})
+        t["count"] += 1
+        t["amount"] += c.total
+
+    # 접수 흐름(이 기간에 문진을 제출한 사건 기준, 결제 대기 자동 취소 포함)
+    created = db.scalars(select(Case).where(Case.created_at >= since)).all()
+    funnel = [
+        {"key": "created", "label": "문진 제출", "count": len(created)},
+        {"key": "paid", "label": "결제", "count": sum(1 for c in created if c.paid_at)},
+        {"key": "accepted", "label": "수임 확정", "count": sum(1 for c in created if c.accepted_at)},
+        {"key": "delivered", "label": "발송 완료", "count": sum(1 for c in created if c.delivered_at)},
+    ]
+    rejected = sum(1 for c in created if c.rejected_at)
+
+    delivered = db.scalars(select(Case).where(Case.delivered_at >= since, Case.paid_at.is_not(None))).all()
+    lead = [(aware(c.delivered_at) - aware(c.paid_at)).total_seconds() / 86400 for c in delivered]
+
+    providers: dict[str, int] = {}
+    for u in signups:
+        providers[u.social_provider] = providers.get(u.social_provider, 0) + 1
+
+    return {
+        "days": days, "unit": unit, "since": since,
+        "totals": {
+            "gross": gross, "refunds": refunded, "net": gross - refunded,
+            "paid_cases": len(paid_cases), "avg_order": round(sum(c.total for c in paid_cases) / len(paid_cases)) if paid_cases else None,
+            "signups": len(signups), "signups_onboarded": sum(1 for u in signups if u.onboarded_at),
+            "rejected": rejected, "avg_lead_days": round(sum(lead) / len(lead), 1) if lead else None, "delivered": len(lead),
+        },
+        "series": list(series.values()),
+        "by_service": sorted(by_service.values(), key=lambda r: (-r["amount"], -r["count"])),
+        "by_track": sorted(by_track.values(), key=lambda r: ["self", "atty", "other"].index(r["track"])),
+        "funnel": funnel,
+        "providers": providers,
+    }
+
+
+# ---------- 주문·결제 ---------------------------------------------------------
+
+PAY_STATUS_LABEL = {"ready": "결제 대기", "done": "결제 완료", "canceled": "환불·취소", "failed": "실패"}
+
+
+@router.get("/payments")
+def list_payments(
+    q: str | None = None,
+    status_: str | None = Query(default=None, alias="status"),
+    kind: str | None = Query(default=None, pattern="^(case|charge)$"),
+    days: int | None = Query(default=None, ge=1, le=3660),
+    page: int = Query(default=1, ge=1),
+    _: User = Depends(get_admin_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    """결제 한 건 = 한 줄(사건 본 결제와 추가 요금 결제 모두). 결제창을 열기만 한 대기 건은 기본 목록에서 뺀다."""
+    stmt = select(Payment).join(Case, Case.id == Payment.case_id)
+    if status_:
+        stmt = stmt.where(Payment.status == status_)
+    else:
+        stmt = stmt.where(Payment.status != "ready")
+    if kind == "case":
+        stmt = stmt.where(Payment.charge_id.is_(None))
+    elif kind == "charge":
+        stmt = stmt.where(Payment.charge_id.is_not(None))
+    if days:
+        stmt = stmt.where(Payment.created_at >= kst_day_start(days - 1))
+    if q:
+        like = f"%{q.strip()}%"
+        digits = "".join(ch for ch in q if ch.isdigit())
+        conds = [Payment.order_id.ilike(like), Case.service_name.ilike(like), Case.opponent_name.ilike(like)]
+        if digits:
+            conds.append(Case.id == int(digits[-5:]))
+        stmt = stmt.where(or_(*conds))
+    sub = stmt.subquery()
+    total = db.scalar(select(func.count()).select_from(sub)) or 0
+    summary = {
+        st: {"count": n, "amount": amt or 0}
+        for st, n, amt in db.execute(select(sub.c.status, func.count(), func.sum(sub.c.amount)).group_by(sub.c.status)).all()
+    }
+    rows = db.scalars(stmt.order_by(Payment.id.desc()).offset((page - 1) * PAGE_SIZE).limit(PAGE_SIZE)).all()
+    items = []
+    for p in rows:
+        c = p.case
+        client = db.get(User, c.user_id)
+        items.append({
+            "id": p.id, "order_id": p.order_id, "amount": p.amount, "status": p.status, "status_label": PAY_STATUS_LABEL.get(p.status, p.status),
+            "method": p.method, "simulated": p.simulated, "receipt_url": p.receipt_url,
+            "created_at": p.created_at, "approved_at": p.approved_at, "canceled_at": p.canceled_at, "cancel_reason": p.cancel_reason,
+            "kind": "charge" if p.charge_id else "case", "charge_label": p.charge.label if p.charge else None,
+            "case_id": c.id, "case_no": c.case_no, "service_name": c.service_name,
+            "client_name": (c.intake or {}).get("client_name") or (client.name if client else None),
+        })
+    return {"items": items, "summary": summary, "status_labels": PAY_STATUS_LABEL, **page_meta(total, page)}
 
 
 # ---------- 회원 -------------------------------------------------------------

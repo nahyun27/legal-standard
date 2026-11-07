@@ -1371,3 +1371,51 @@ a.card:hover .card-more { color: var(--tag); gap: 6px; }
 .pw-links { display: flex; justify-content: space-between; gap: 10px; margin-top: 12px; font-size: .82rem; }
 .pw-links a { color: var(--ink-soft); text-decoration: underline; text-underline-offset: 2px; }
 .pw-change .field input { width: 100%; }
+
+/* 관리자 통계 차트 (components/admin/Charts.tsx) */
+.stats-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.stats-2 .admin-card { margin-bottom: 18px; }
+@media (max-width: 900px) { .stats-2 { grid-template-columns: 1fr; } }
+.vz { position: relative; }
+.vz-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 10px; font-size: .78rem; color: var(--ink-soft); }
+.vz-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.vz-legend i { width: 10px; height: 10px; border-radius: 2px; }
+.vz-legend b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.vz-legend small { color: var(--muted); }
+.vz-plot { position: relative; margin-left: 44px; }
+.vz-grid { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; }
+.vz-grid div { position: relative; border-top: 1px solid #eef0f4; height: 0; }
+.vz-grid div:last-child { border-top-color: #cfd4de; }
+.vz-grid span { position: absolute; right: calc(100% + 8px); top: -8px; font-size: .68rem; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.vz-cols { position: absolute; inset: 0; display: flex; align-items: stretch; }
+.vz-col { position: relative; flex: 1; display: flex; align-items: flex-end; justify-content: center; outline: none; cursor: default; }
+.vz-col.on, .vz-col:focus-visible { background: rgba(20, 33, 61, .04); }
+.vz-bars { display: flex; align-items: flex-end; gap: 2px; height: 100%; width: 100%; max-width: 50px; justify-content: center; }
+.vz-bars span { flex: 1; max-width: 24px; border-radius: 4px 4px 0 0; }
+.vz-col.on .vz-bars span { filter: brightness(1.1); }
+.vz-tip { position: absolute; top: 4px; left: 50%; transform: translateX(-20%); z-index: 3; background: #fff; border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow-md); padding: 8px 10px; display: grid; gap: 3px; white-space: nowrap; pointer-events: none; font-size: .78rem; }
+.vz-tip.left { left: auto; right: 50%; transform: translateX(20%); }
+.vz-tip small { color: var(--muted); font-size: .7rem; }
+.vz-tip div { display: flex; align-items: center; gap: 6px; }
+.vz-tip i { width: 10px; height: 2px; border-radius: 1px; }
+.vz-tip b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.vz-tip span { color: var(--muted); }
+.vz-x { display: flex; margin: 6px 0 0 44px; }
+.vz-x span { flex: 1; text-align: center; font-size: .68rem; color: var(--muted); white-space: nowrap; overflow: visible; }
+.vz-empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: .84rem; margin: 0; }
+.vz-empty.static { position: static; padding: 18px 0; }
+.vz-barlist { list-style: none; display: grid; gap: 10px; }
+.vz-barlist li { display: grid; grid-template-columns: minmax(90px, 30%) 1fr auto; align-items: center; gap: 10px; font-size: .84rem; outline: none; }
+.vz-barlist li:focus-visible { background: var(--mist); border-radius: 6px; }
+.vz-barlist .lbl { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vz-barlist .trk { height: 14px; display: flex; }
+.vz-barlist .trk span { height: 100%; border-radius: 0 4px 4px 0; }
+.vz-barlist .val { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--ink); text-align: right; white-space: nowrap; }
+.vz-barlist .val small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; }
+.vz-split { display: flex; gap: 2px; height: 22px; border-radius: 4px; overflow: hidden; margin-bottom: 12px; }
+.vz-split span { min-width: 2px; }
+.vz-table { margin-top: 12px; font-size: .8rem; }
+.vz-table summary { cursor: pointer; color: var(--ink-soft); font-weight: 600; }
+.vz-table .table-wrap { margin-top: 8px; max-height: 280px; }
+.admin .filters select { border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; background: #fff; font: inherit; font-size: .86rem; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .76rem; color: var(--ink-soft); }

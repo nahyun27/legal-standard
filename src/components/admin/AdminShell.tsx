@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { ClipboardList, ExternalLink, LayoutDashboard, LogOut, ScrollText, Settings, ShieldCheck, Users } from 'lucide-react';
+import { BarChart3, ClipboardList, ExternalLink, LayoutDashboard, LogOut, Receipt, ScrollText, Settings, ShieldCheck, Users } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { ReasonProvider } from '@/components/admin/ReasonDialog';
 import { api } from '@/lib/api';
@@ -25,6 +25,8 @@ export const useStaffReload = () => useContext(StaffContext)!.reload;
 const NAV = [
   { href: '/admin', label: '대시보드', icon: LayoutDashboard, exact: true },
   { href: '/admin/cases', label: '사건', icon: ClipboardList },
+  { href: '/admin/payments', label: '주문·결제', icon: Receipt, adminOnly: true },
+  { href: '/admin/stats', label: '통계', icon: BarChart3, adminOnly: true },
   { href: '/admin/users', label: '회원', icon: Users, adminOnly: true },
   { href: '/admin/audit', label: '감사 로그', icon: ScrollText, adminOnly: true },
   { href: '/admin/settings', label: '설정', icon: Settings },
