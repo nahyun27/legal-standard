@@ -13,7 +13,7 @@ type Agreements = Record<Consent['key'], boolean>;
 /** 가입 마무리 — 소셜 로그인으로 계정이 생긴 뒤, 필수 약관 동의와 실명·연락처를 받는다. */
 export default function SignupForm({ next }: { next?: string }) {
   const router = useRouter();
-  const { user, ready, setUser } = useAuth();
+  const { user, ready, setUser, logout } = useAuth();
   const target = safeNext(next);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -105,6 +105,13 @@ export default function SignupForm({ next }: { next?: string }) {
       <button className="btn btn-primary btn-lg" style={{ width: '100%', marginTop: 8 }} disabled={busy || !requiredOk}>
         {busy ? '처리 중…' : '가입 완료'}
       </button>
+      {/* 가입 마무리 전 계정은 /my 에 못 들어가 로그아웃 버튼을 볼 수 없다 — 여기서 계정을 바꿀 수 있게 한다 */}
+      <p className="auth-foot">
+        {user.email ? <><b>{user.email}</b> 계정으로 가입 중입니다. </> : null}
+        <button type="button" className="link-btn" onClick={async () => { await logout(); router.replace('/login'); }}>
+          다른 계정으로 로그인
+        </button>
+      </p>
     </form>
   );
 }
