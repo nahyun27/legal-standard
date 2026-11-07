@@ -229,7 +229,7 @@ export default function CaseView({ id, justPaid }: { id: number; justPaid: boole
 }
 
 /**
- * 전자 수임약정 — 변호사 명의로 진행하는 사건은 수임 확정 뒤 여기서 약정 내용을 확인하고 서명한다.
+ * 전자 수임약정 — 변호사에게 맡긴 사건은 수임 확정 뒤 여기서 약정 내용을 확인하고 서명한다.
  * 서명하면 문안 버전·본문 해시·시각이 사건에 남고, 그 전에는 변호사가 검수를 마칠 수 없다.
  */
 function RetainerCard({ caseId, signedAt, clientName, onSigned }: {
@@ -267,7 +267,7 @@ function RetainerCard({ caseId, signedAt, clientName, onSigned }: {
       {signedAt ? (
         <p>{fmtDate(signedAt, true)}에 전자 서명했습니다. <button className="link-btn" onClick={() => setOpen(!open)}>{open ? '접기' : '약정서 보기'}</button></p>
       ) : (
-        <p>변호사 명의로 진행하려면 수임약정에 서명해 주세요. 서명하신 뒤 담당 변호사가 서면을 확정하고 제출합니다.</p>
+        <p>변호사에게 맡기려면 수임약정에 서명해 주세요. 서명하신 뒤 담당 변호사가 서면을 확정하고 제출합니다.</p>
       )}
       {open && (
         !doc ? (error ? <p className="form-error">{error}</p> : <div className="spinner" style={{ margin: '16px auto' }} />) : (

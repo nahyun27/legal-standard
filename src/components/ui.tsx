@@ -57,6 +57,26 @@ export function TrustSeal({ compact }: { compact?: boolean }) {
   );
 }
 
+/**
+ * 두 방식을 도장으로 보여 주는 서면 미니 그림. 두 서면 모두 같은 "변호사 검토" 도장이 찍히고,
+ * 제출하는 사람 자리의 도장만 다르다 — 서면만 받기는 의뢰인 도장(둥근 인감), 맡기기는 변호사 도장(네모 직인).
+ */
+export function DocStamp({ kind, title }: { kind: 'self' | 'atty'; title?: string }) {
+  const atty = kind === 'atty';
+  return (
+    <figure className={`doc-stamp doc-${kind}`} aria-label={atty ? '변호사 도장으로 제출하는 서면' : '내 도장으로 제출하는 서면'}>
+      <span className="doc-title">{title ?? '서면'}</span>
+      <span className="doc-lines" aria-hidden="true"><i /><i /><i /><i /></span>
+      <span className="seal seal-review" aria-hidden="true">변호사<br />검토</span>
+      <span className="doc-sign">
+        <span className="doc-role">{atty ? '대리인' : '제출인'}</span>
+        <b>{atty ? '변호사' : '나'}</b>
+        <span className={`seal ${atty ? 'seal-atty' : 'seal-self'}`} aria-hidden="true">{atty ? <>변호<br />사인</> : '의뢰인'}</span>
+      </span>
+    </figure>
+  );
+}
+
 /** 숫자·항목 한 줄 요약 칩(페이지 상단 aside 등) */
 export function StatChips({ items }: { items: { label: string; value: string }[] }) {
   return (

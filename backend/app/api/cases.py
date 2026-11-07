@@ -105,7 +105,7 @@ def check_track(product: Product, track: str | None) -> str | None:
     if product.is_quote:
         return None
     if track not in (product.fees or {}):
-        what = "진행 방식(직접 제출 / 변호사 명의)" if set(product.fees or {}) == {"self", "atty"} else "가격 선택지"
+        what = "진행 방식(서면만 받기 / 변호사에게 맡기기)" if set(product.fees or {}) == {"self", "atty"} else "가격 선택지"
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"{what}을 선택해 주세요.")
     return track
 

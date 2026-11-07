@@ -27,7 +27,7 @@ def pay(client, case_id, amount=None):
 def test_quote_is_public(client):
     r = client.get("/api/v1/catalog/quote", params={"service": "payment-order", "track": "atty", "claim_amount": 5_000_000})
     assert r.status_code == 200 and r.json()["total"] == 343_200
-    assert r.json()["service_name"] == "지급명령 신청 · 변호사 명의"
+    assert r.json()["service_name"] == "지급명령 신청 · 변호사에게 맡기기"
 
 
 def test_self_track_has_no_costs(client):
@@ -55,7 +55,7 @@ def test_create_case_uses_server_price_and_reuses_pending(client, db):
     b = new_case(client, facts="수정한 내용", track="self")
     assert a["id"] == b["id"]  # 같은 상품의 결제 대기 사건은 덮어쓴다(방식을 바꿔도)
     assert b["intake"]["facts"] == "수정한 내용"
-    assert b["track"] == "self" and b["total"] == 165_000 and b["service_name"] == "지급명령 신청 · 직접 제출"
+    assert b["track"] == "self" and b["total"] == 165_000 and b["service_name"] == "지급명령 신청 · 서면만 받기"
 
 
 def test_claim_amount_required_for_money_products(client, db):

@@ -13,7 +13,7 @@ DEFENSE = {**INTAKE, "service_slug": "suspect-defense", "track": "opinion", "cla
 def test_units_multiply_fee_and_have_a_cap(client, db):
     make_user(client, db, "고객")
     c = new_case(client, **COMPLAINT, units=2)
-    assert c["fee"] == 960_000 and c["units"] == 2 and c["service_name"] == "형사 고소장 · 변호사 명의 · 고소사실 2개"
+    assert c["fee"] == 960_000 and c["units"] == 2 and c["service_name"] == "형사 고소장 · 변호사에게 맡기기 · 고소사실 2개"
     assert client.post("/api/v1/cases", json={**COMPLAINT, "units": 6}).status_code == 422
     # 개수 단위가 없는 상품은 개수를 무시한다
     assert new_case(client, units=3)["units"] == 1

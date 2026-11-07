@@ -4,7 +4,7 @@ import { ArrowRight, Check, ChevronDown, ClipboardList, FileSignature, Minus, Se
 import { glossed } from '@/components/Glossed';
 import Reveal from '@/components/Reveal';
 import ServiceOrder from '@/components/ServiceOrder';
-import { AddonLines, AreaBadges, PageHero, PriceRows } from '@/components/ui';
+import { AddonLines, AreaBadges, DocStamp, PageHero, PriceRows } from '@/components/ui';
 import { FAQ } from '@/data/faq';
 import { PREP, SERVICES, TRACK_INFO, getService, serviceTitle } from '@/data/services';
 import { priceText } from '@/lib/format';
@@ -29,11 +29,11 @@ export default async function ServiceDetail({ params }: PageProps<'/services/[sl
     { icon: ClipboardList, title: '온라인 문진·자료 제출', body: '질문에 답하면서 있었던 일을 적고 증거를 올립니다. 15분쯤 걸립니다.' },
     { icon: UserCheck, title: '변호사 수임 검토', body: '담당 변호사가 24시간 안에 이해충돌이 없는지, 정해진 업무범위로 처리할 수 있는지 확인합니다.' },
     { icon: FileSignature, title: '서면 작성·검토', body: `변호사가 검토하고 확정합니다${s.turnaround ? `(${s.turnaround})` : ''}.${s.tracks?.some((t) => t.retainer) ? ' 수임약정이 필요한 방식은 이때 전자 수임약정을 맺습니다.' : ''}` },
-    { icon: Send, title: '전달 또는 제출', body: twoWays ? '직접 제출 방식은 서면과 제출 안내서를 받고, 변호사 명의 방식은 변호사가 제출한 뒤 진행 상황을 알려 드립니다.' : '결과와 다음 단계는 내 사건 페이지에서 확인합니다.' },
+    { icon: Send, title: '전달 또는 제출', body: twoWays ? '서면만 받기는 서면과 제출 안내서를 받아 내 이름으로 내고, 변호사에게 맡기기는 변호사가 제출한 뒤 진행 상황을 알려 드립니다.' : '결과와 다음 단계는 내 사건 페이지에서 확인합니다.' },
   ];
   const seen = new Set<string>(); // 페이지에서 용어를 처음 한 번만 풀이한다
   const faqs = FAQ.filter((f) => [
-    ...(twoWays ? ['「내가 직접 제출」과 「변호사 명의」는 무엇이 다른가요?'] : []),
+    ...(twoWays ? ['「서면만 받기」와 「변호사에게 맡기기」는 무엇이 다른가요?'] : []),
     '표시된 가격 외에 추가 비용이 있나요?', '상대방이 이의하거나 사건이 커지면 어떻게 되나요?', '진행이 어려운 사건이면 어떻게 되나요?',
   ].includes(f.q));
 
@@ -56,6 +56,7 @@ export default async function ServiceDetail({ params }: PageProps<'/services/[sl
               <div className="way-compare">
                 {s.tracks!.map((t) => (
                   <div key={t.kind} className={`way way-${t.kind}`}>
+                    <DocStamp kind={t.kind} title={s.name} />
                     <h3>{t.label}{t.retainer && <span className="retainer">수임약정</span>}</h3>
                     <p className="way-price">{priceText(s, t.kind)} <small>VAT 별도</small></p>
                     {t.note && <p className="way-note">{t.note}</p>}
@@ -95,7 +96,7 @@ export default async function ServiceDetail({ params }: PageProps<'/services/[sl
           )}
           {s.costs && (
             <p className="note" style={{ marginTop: -8, marginBottom: 24 }}>
-              별도 실비: {glossed(s.costs.join(', '), seen)}. {twoWays ? '직접 제출 방식은 제출할 때 직접 내시고, 변호사 명의 방식은 결제할 때 함께 받습니다. ' : ''}정확한 금액은 결제 전 총액 화면에서 항목별로 보여 드립니다.
+              별도 실비: {glossed(s.costs.join(', '), seen)}. {twoWays ? '서면만 받기는 제출할 때 직접 내시고, 변호사에게 맡기기는 결제할 때 함께 받습니다. ' : ''}정확한 금액은 결제 전 총액 화면에서 항목별로 보여 드립니다.
             </p>
           )}
 

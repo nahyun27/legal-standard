@@ -49,7 +49,7 @@ export default function ServiceOrder({ service: s }: { service: Service }) {
           <ul>
             <li>VAT 별도{s.unitCount && ` · ${s.unitCount.label} 1개 기준(개수만큼 곱함)`}</li>
             {s.turnaround && <li>{s.turnaround}</li>}
-            {s.costs && <li>별도 실비: {s.costs.join(', ')}{s.tracks && s.tracks.length > 1 && ' (직접 제출은 제출할 때 직접 납부)'}</li>}
+            {s.costs && <li>별도 실비: {s.costs.join(', ')}{s.tracks && s.tracks.length > 1 && ' (서면만 받기는 제출할 때 직접 납부)'}</li>}
             {!isQuote && <li>수임하지 않으면 전액 환불</li>}
           </ul>
         </div>

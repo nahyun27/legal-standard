@@ -10,7 +10,7 @@ import { pageMeta } from '@/lib/seo';
 
 export const metadata = pageMeta({
   title: '서비스·가격',
-  description: '민사·형사·자문 모든 상품의 직접 제출·변호사 명의 두 가지 가격과 업무범위.',
+  description: '민사·형사·자문 모든 상품의 서면만 받기·변호사에게 맡기기 두 가지 가격과 업무범위.',
   path: '/services',
 });
 
@@ -36,7 +36,7 @@ export default function ServicesPage() {
       <PageHero
         crumbs={[{ label: '서비스·가격' }]}
         title="서비스·가격"
-        lead="상품마다 두 가지 가격이 있습니다. 변호사가 검토한 서면을 본인 이름으로 직접 내거나, 변호사 명의로 제출과 이후 절차까지 맡길 수 있습니다. 가격은 따로 협의하지 않습니다."
+        lead="상품마다 두 가지 가격이 있습니다. 변호사가 검토한 서면만 받아 내 이름으로 내거나, 변호사에게 제출과 이후 절차까지 맡길 수 있습니다. 가격은 따로 협의하지 않습니다."
         aside={
           <StatChips items={[
             { label: '지금 접수 가능', value: `${open}개 서비스` },
@@ -87,7 +87,7 @@ export default function ServicesPage() {
                 <h3>{AREA_LABEL[area]}</h3>
                 <div className="table-wrap">
                   <table className="table price-table">
-                    <thead><tr><th>상품</th><th>처리 기간</th><th style={{ textAlign: 'right' }}>내가 직접 제출</th><th style={{ textAlign: 'right' }}>변호사 명의</th></tr></thead>
+                    <thead><tr><th>상품</th><th>처리 기간</th><th style={{ textAlign: 'right' }}>서면만 받기</th><th style={{ textAlign: 'right' }}>변호사에게 맡기기</th></tr></thead>
                     <tbody>
                       {SERVICES.filter((s) => s.area === area).map((s) => (
                         <tr key={s.slug}>

@@ -58,7 +58,7 @@ try {
   await customer.waitForURL(/\/intake\/payment-order/);
   await customer.waitForSelector('#cn');
   expect((await customer.inputValue('#cn')) === '박고객', '가입 정보로 의뢰인 이름이 채워진다');
-  expect((await customer.locator('.track-pick [aria-checked="true"]').innerText()).includes('변호사 명의'), '상품 페이지에서 고른 방식(변호사 명의)이 선택돼 있다');
+  expect((await customer.locator('.track-pick [aria-checked="true"]').innerText()).includes('변호사에게 맡기기'), '상품 페이지에서 고른 방식(변호사에게 맡기기)이 선택돼 있다');
   await customer.fill('#op', `(주)상대상사${stamp}`);
   await customer.click('button:has-text("다음")');
   await customer.fill('#am', '5000000');

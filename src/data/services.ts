@@ -2,7 +2,7 @@ import type { Area, PrepKey, Service, Track, TrackKind } from './types';
 
 /**
  * 상품·정찰가(VAT 별도). 구성과 가격은 의뢰인 시안 v5 를 따른다.
- * 대부분의 상품은 두 방식의 가격을 함께 공개한다 — 본인 명의로 직접 제출(self) / 변호사 명의(atty).
+ * 대부분의 상품은 두 방식의 가격을 함께 공개한다 — 서면만 받기(self, 본인 이름으로 제출) / 변호사에게 맡기기(atty, 변호사 명의).
  * 접수 가능한(stage: 'pilot') 상품의 가격은 백엔드 catalog.py 와 같아야 한다(tests/test_catalog.py 가 대조).
  * 가격 한 줄은 `{ kind: …, label: …, amount: … }` 형식을 지킬 것 — 테스트가 이 형식으로 읽는다.
  */
@@ -17,8 +17,8 @@ export const SERVICES: Service[] = [
     name: '내용증명 발송',
     summary: '대여금 독촉, 보증금 반환 요구, 계약 해지 통보처럼 분쟁을 시작할 때 보내는 첫 공식 문서입니다.',
     tracks: [
-      { kind: 'self', label: '내가 직접 발송', note: '작성·검토 + 발송 안내', amount: 55_000 },
-      { kind: 'atty', label: '변호사 명의 발송', note: '법무법인 명의로 발송', amount: 450_000, retainer: true },
+      { kind: 'self', label: '서면만 받기', note: '작성·검토 + 발송 안내', amount: 55_000 },
+      { kind: 'atty', label: '변호사에게 맡기기', note: '법무법인 명의·주소로 발송 — 내 주소는 적지 않아도 됩니다', amount: 450_000, retainer: true },
     ],
     chips: ['2영업일 안에 완성', '1회 수정 포함'],
     includes: ['온라인 문진으로 사실관계 정리', '내용증명 작성', '변호사 검토', '1회 수정'],
@@ -37,8 +37,8 @@ export const SERVICES: Service[] = [
     summary: '차용증이나 거래 내역이 있는 돈을 재판 없이 받을 수 있게 하는 법원 절차입니다.',
     tag: '여정 상품',
     tracks: [
-      { kind: 'self', label: '내가 직접 제출', note: '신청서 + 전자소송 안내', amount: 150_000 },
-      { kind: 'atty', label: '변호사 명의 대리', note: '제출·송달·보정 대응', amount: 250_000, retainer: true },
+      { kind: 'self', label: '서면만 받기', note: '신청서 + 전자소송 안내', amount: 150_000 },
+      { kind: 'atty', label: '변호사에게 맡기기', note: '제출·송달·보정 대응', amount: 250_000, retainer: true },
     ],
     chips: ['3영업일 안에 완성', '이의 시 소송 가격 미리 공개'],
     includes: ['지급명령 신청서 작성', '변호사 검토', '보정명령 1회 대응'],
@@ -59,8 +59,8 @@ export const SERVICES: Service[] = [
     name: '임차권등기명령',
     summary: '보증금을 돌려받지 못한 채 이사해야 할 때, 대항력과 우선변제권을 지키기 위해 신청합니다.',
     tracks: [
-      { kind: 'self', label: '내가 직접 제출', amount: 110_000 },
-      { kind: 'atty', label: '변호사 명의 대리', amount: 220_000, retainer: true },
+      { kind: 'self', label: '서면만 받기', amount: 110_000 },
+      { kind: 'atty', label: '변호사에게 맡기기', amount: 220_000, retainer: true },
     ],
     chips: ['3영업일 안에 완성', '보증금 돌려받기 단계와 연결'],
     costs: ['인지대', '송달료', '등기촉탁 수수료'],
@@ -77,8 +77,8 @@ export const SERVICES: Service[] = [
     summary: '지급명령에 이의가 들어왔거나 처음부터 소송으로 가야 할 때 쓰는 소장입니다. 전자소송으로 진행합니다.',
     tag: '여정 상품',
     tracks: [
-      { kind: 'self', label: '내가 직접 제출', note: '소장 + 진행 안내', amount: 300_000 },
-      { kind: 'atty', label: '변호사 명의 대리', note: '서면·절차 수행, 기일은 본인 출석', amount: 680_000, retainer: true },
+      { kind: 'self', label: '서면만 받기', note: '소장 + 진행 안내', amount: 300_000 },
+      { kind: 'atty', label: '변호사에게 맡기기', note: '서면·절차 수행, 기일은 본인 출석', amount: 680_000, retainer: true },
     ],
     addons: [APPEAR],
     chips: ['5영업일 안에 완성', '출석이 필요 없는 사건이면 추가 비용 없음'],
@@ -94,8 +94,8 @@ export const SERVICES: Service[] = [
     name: '답변서 · 준비서면',
     summary: '소장이나 지급명령을 받았을 때 피고 쪽에서 내는 대응 서면입니다.',
     tracks: [
-      { kind: 'self', label: '내가 직접 제출', amount: 300_000 },
-      { kind: 'atty', label: '변호사 명의 대리', amount: 680_000, retainer: true },
+      { kind: 'self', label: '서면만 받기', amount: 300_000 },
+      { kind: 'atty', label: '변호사에게 맡기기', amount: 680_000, retainer: true },
     ],
     addons: [APPEAR],
     chips: ['5영업일 안에 완성'],
@@ -110,8 +110,8 @@ export const SERVICES: Service[] = [
     summary: '판결이나 지급명령을 받은 뒤에도 돈을 주지 않을 때, 상대방의 예금·급여에서 받아 내는 절차입니다.',
     tag: '집행',
     tracks: [
-      { kind: 'self', label: '내가 직접 제출', amount: 110_000 },
-      { kind: 'atty', label: '변호사 명의 대리', amount: 220_000, retainer: true },
+      { kind: 'self', label: '서면만 받기', amount: 110_000 },
+      { kind: 'atty', label: '변호사에게 맡기기', amount: 220_000, retainer: true },
     ],
     chips: ['3영업일 안에 완성', '재산조회와 함께 신청 가능'],
     costs: ['인지대', '송달료'],
@@ -127,8 +127,8 @@ export const SERVICES: Service[] = [
     summary: '채무자에게 법원에 재산 목록을 내라고 명하게 하는 절차입니다.',
     tag: '집행',
     tracks: [
-      { kind: 'self', label: '내가 직접 제출', amount: 80_000 },
-      { kind: 'atty', label: '변호사 명의 대리', amount: 180_000, retainer: true },
+      { kind: 'self', label: '서면만 받기', amount: 80_000 },
+      { kind: 'atty', label: '변호사에게 맡기기', amount: 180_000, retainer: true },
     ],
     chips: ['3영업일 안에 완성'],
     costs: ['인지대', '송달료'],
@@ -143,8 +143,8 @@ export const SERVICES: Service[] = [
     summary: '갚지 않는 채무자를 법원의 채무불이행자명부에 올리는 절차입니다.',
     tag: '집행',
     tracks: [
-      { kind: 'self', label: '내가 직접 제출', amount: 80_000 },
-      { kind: 'atty', label: '변호사 명의 대리', amount: 180_000, retainer: true },
+      { kind: 'self', label: '서면만 받기', amount: 80_000 },
+      { kind: 'atty', label: '변호사에게 맡기기', amount: 180_000, retainer: true },
     ],
     chips: ['3영업일 안에 완성'],
     costs: ['인지대', '송달료'],
@@ -159,8 +159,8 @@ export const SERVICES: Service[] = [
     summary: '법원을 통해 채무자 명의의 예금·부동산·자동차 같은 재산을 조회합니다.',
     tag: '집행',
     tracks: [
-      { kind: 'self', label: '내가 직접 제출', amount: 80_000 },
-      { kind: 'atty', label: '변호사 명의 대리', amount: 180_000, retainer: true },
+      { kind: 'self', label: '서면만 받기', amount: 80_000 },
+      { kind: 'atty', label: '변호사에게 맡기기', amount: 180_000, retainer: true },
     ],
     chips: ['3영업일 안에 완성'],
     costs: ['인지대', '조회 비용'],
@@ -175,8 +175,8 @@ export const SERVICES: Service[] = [
     name: '소송비용액 확정',
     summary: '승소한 뒤 상대방에게 소송에 든 비용을 청구할 수 있게 금액을 확정받는 절차입니다.',
     tracks: [
-      { kind: 'self', label: '내가 직접 제출', amount: 80_000 },
-      { kind: 'atty', label: '변호사 명의 대리', amount: 180_000, retainer: true },
+      { kind: 'self', label: '서면만 받기', amount: 80_000 },
+      { kind: 'atty', label: '변호사에게 맡기기', amount: 180_000, retainer: true },
     ],
     chips: ['3영업일 안에 완성'],
     costs: ['인지대', '송달료'],
@@ -208,8 +208,8 @@ export const SERVICES: Service[] = [
     summary: '사기, 횡령, 폭행, 명예훼손 같은 피해를 고소할 때 구성요건과 증거를 갖춰 쓰는 고소장입니다.',
     tag: '여정 상품',
     tracks: [
-      { kind: 'self', label: '내가 직접 제출', note: '고소장 + 접수 안내', amount: 220_000 },
-      { kind: 'atty', label: '변호사 명의 고소대리', note: '고소대리인 선임계 제출 포함', amount: 480_000, retainer: true },
+      { kind: 'self', label: '서면만 받기', note: '고소장 + 접수 안내', amount: 220_000 },
+      { kind: 'atty', label: '변호사에게 맡기기', note: '고소대리인 선임계 제출 포함', amount: 480_000, retainer: true },
     ],
     addons: [{ label: '고소인 조사 출석 동행', per: '1회당', options: APPEAR.options }],
     unitCount: { label: '고소사실', max: 5 },
@@ -227,8 +227,8 @@ export const SERVICES: Service[] = [
     name: '불송치 이의신청 · 재정신청',
     summary: '경찰의 불송치 결정이나 검사의 불기소 처분에 불복할 때 내는 서면입니다.',
     tracks: [
-      { kind: 'self', label: '내가 직접 제출', amount: 220_000 },
-      { kind: 'atty', label: '변호사 명의 대리', amount: 480_000, retainer: true },
+      { kind: 'self', label: '서면만 받기', amount: 220_000 },
+      { kind: 'atty', label: '변호사에게 맡기기', amount: 480_000, retainer: true },
     ],
     chips: ['결정문 분석 포함', '5영업일 안에 완성'],
     turnaround: '5영업일 안에 완성',
@@ -242,8 +242,8 @@ export const SERVICES: Service[] = [
     unit: '고소인·피해자 의견서',
     summary: '수사나 재판 단계에서 피해자의 입장을 법리에 맞춰 전달하는 서면입니다.',
     tracks: [
-      { kind: 'self', label: '내가 직접 제출', amount: 220_000 },
-      { kind: 'atty', label: '변호사 명의 제출', amount: 480_000, retainer: true },
+      { kind: 'self', label: '서면만 받기', amount: 220_000 },
+      { kind: 'atty', label: '변호사에게 맡기기', amount: 480_000, retainer: true },
     ],
     chips: ['5영업일 안에 완성'],
     turnaround: '5영업일 안에 완성',
@@ -268,8 +268,8 @@ export const SERVICES: Service[] = [
     name: '배상명령 신청',
     summary: '형사재판이 열렸을 때 피고인에게 피해 배상을 함께 청구하는 신청입니다.',
     tracks: [
-      { kind: 'self', label: '내가 직접 제출', amount: 90_000 },
-      { kind: 'atty', label: '변호사 명의 대리', amount: 180_000, retainer: true },
+      { kind: 'self', label: '서면만 받기', amount: 90_000 },
+      { kind: 'atty', label: '변호사에게 맡기기', amount: 180_000, retainer: true },
     ],
     chips: ['피해금액 산정 포함'],
     prep: 'criminal',
@@ -281,8 +281,8 @@ export const SERVICES: Service[] = [
     name: '엄벌탄원서',
     summary: '피해자로서 엄중한 처벌을 바란다는 뜻을 수사기관이나 법원에 전달하는 서면입니다.',
     tracks: [
-      { kind: 'self', label: '내가 직접 제출', amount: 40_000 },
-      { kind: 'atty', label: '변호사 명의 제출', amount: 100_000 },
+      { kind: 'self', label: '서면만 받기', amount: 40_000 },
+      { kind: 'atty', label: '변호사에게 맡기기', amount: 100_000 },
     ],
     chips: ['2영업일 안에 완성'],
     turnaround: '2영업일 안에 완성',
@@ -384,16 +384,38 @@ export const AREA_NOTE: Record<Exclude<Area, 'consult'>, string> = {
 };
 
 /** 두 방식의 설명 — 홈·상세 페이지의 방식 비교에 쓴다 */
-export const TRACK_INFO: Record<TrackKind, { title: string; lead: string; points: string[] }> = {
+/** 각 단계를 누가 하는지 — 홈 "두 가지 방식" 흐름도의 배지 */
+export type Actor = 'me' | 'atty';
+export const ACTOR_LABEL: Record<Actor, string> = { me: '나', atty: '변호사' };
+
+/** 두 방식이 같이 거치는 단계(흐름도의 줄기) */
+export const TRACK_COMMON: { who: Actor; text: string }[] = [
+  { who: 'me', text: '온라인 문진·결제' },
+  { who: 'atty', text: '담당 변호사가 서면 검토' },
+];
+
+export const TRACK_INFO: Record<TrackKind, { title: string; lead: string; fit: string; points: string[]; steps: { who: Actor; text: string; note?: string }[] }> = {
   self: {
-    title: '내가 직접 제출',
-    lead: '변호사가 검토한 서면을 받아 본인 이름으로 제출하거나 발송합니다.',
+    title: '서면만 받기',
+    lead: '변호사가 검토한 서면을 받아 직접 제출하세요.',
+    fit: '제출은 직접 할 수 있고, 서면 작성에 도움이 필요한 분',
     points: ['서면은 담당 변호사가 검토합니다', '제출 방법을 적은 안내서를 함께 드립니다', '수임약정 없이 진행합니다'],
+    steps: [
+      { who: 'me', text: '서면·제출 안내서 받기' },
+      { who: 'me', text: '내 이름으로 제출' },
+      { who: 'me', text: '이후 절차는 직접 진행' },
+    ],
   },
   atty: {
-    title: '변호사 명의로',
-    lead: '수임약정을 맺고 변호사가 대리인 이름으로 제출하고 이후 절차에 대응합니다.',
+    title: '변호사에게 맡기기',
+    lead: '서면 제출부터 보정·송달 대응까지 변호사에게 맡기세요.',
+    fit: '직접 진행하기 어렵거나, 제출 뒤 법원 연락까지 맡기고 싶은 분',
     points: ['서면은 담당 변호사가 검토합니다', '변호사 이름으로 제출·발송합니다', '보정·송달 같은 이후 절차도 대응합니다'],
+    steps: [
+      { who: 'me', text: '온라인 수임약정 서명' },
+      { who: 'atty', text: '변호사 이름으로 제출' },
+      { who: 'atty', text: '보정·송달 대응' },
+    ],
   },
 };
 

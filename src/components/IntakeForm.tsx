@@ -21,7 +21,7 @@ import { startPayment, type Consents, type PayMethod } from '@/lib/payment';
  * 입력은 sessionStorage 에 둬서 로그인하러 다녀와도 남는다 — 탭을 닫으면 지워진다(민감정보라 오래 남기지 않음).
  * 첨부 파일은 브라우저 보안상 저장할 수 없어 로그인 후 다시 골라야 한다.
  * 금액은 서버 견적(/catalog/quote)만 보여주고, 결제도 서버가 사건에 고정한 금액으로만 한다.
- * 두 방식이 있는 상품은 첫 단계에서 방식(직접 제출 / 변호사 명의)을 고른다 — 상품 페이지에서 고른 방식이 기본값.
+ * 두 방식이 있는 상품은 첫 단계에서 방식(서면만 받기 / 변호사에게 맡기기)을 고른다 — 상품 페이지에서 고른 방식이 기본값.
  */
 const STEPS = ['당사자 정보', '사건 내용', '증거 자료', '총액 확인'] as const;
 const ANSWER_KEY = (k: string) => `q-${k}`;
@@ -257,7 +257,7 @@ export default function IntakeForm({ service, parentId, initialTrack }: { servic
                   {service.bands
                     ? '다음 단계에서 계약서 PDF 를 올리면 장수를 세어 구간을 맞춰 드립니다.'
                     : track?.retainer
-                      ? '수임이 확정되면 전자 수임약정을 맺고 변호사 명의로 진행합니다.'
+                      ? '수임이 확정되면 전자 수임약정을 맺고 변호사가 변호사 명의로 진행합니다.'
                       : '완성된 서면과 제출 안내서를 받아 본인 이름으로 제출합니다. 법원·우체국 실비는 제출할 때 직접 내시면 됩니다.'}
                 </span>
               </div>

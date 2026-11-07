@@ -15,7 +15,7 @@ from typing import Literal
 
 CostKind = Literal["none", "certified_letter", "payment_order", "small_claims"]
 
-TRACK_LABEL: dict[str, str] = {"self": "직접 제출", "atty": "변호사 명의"}
+TRACK_LABEL: dict[str, str] = {"self": "서면만 받기", "atty": "변호사에게 맡기기"}
 
 
 @dataclass(frozen=True)

@@ -13,7 +13,7 @@ export type TrackKind = 'self' | 'atty';
 
 export interface Track {
   kind: TrackKind;
-  /** 카드에 보이는 방식 이름(예: "내가 직접 발송", "변호사 명의 대리") */
+  /** 카드에 보이는 방식 이름("서면만 받기" / "변호사에게 맡기기") */
   label: string;
   amount: number;
   /** 방식별 업무 한 줄(예: "신청서 + 전자소송 안내") */
