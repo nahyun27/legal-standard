@@ -17,6 +17,7 @@ from app.core.audit import record
 from app.core.config import settings
 from app.core.database import SessionLocal
 from app.core.notify import notify
+from app.core.passwords import purge_old_failures
 from app.core.timeutil import aware, now
 from app.models.case import Case, CaseStatus, Payment
 from app.models.user import User
@@ -53,8 +54,9 @@ def housekeeping(db) -> dict:
             db.commit()
             notify(db, db.get(User, c.user_id), "reminder", c)
             reminded += 1
+    purged = purge_old_failures(db)
     db.commit()
-    return {"reminded": reminded, "expired": expired}
+    return {"reminded": reminded, "expired": expired, "login_failures_purged": purged}
 
 
 def main() -> None:

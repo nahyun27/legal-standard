@@ -164,7 +164,7 @@ def test_housekeeping_reminds_once_then_expires(client, db):
     case = db.get(Case, c["id"])
     case.updated_at = datetime.now(timezone.utc) - timedelta(hours=30)
     db.commit()
-    assert cli.housekeeping(db) == {"reminded": 1, "expired": 0}
+    assert {k: v for k, v in cli.housekeeping(db).items() if k != "login_failures_purged"} == {"reminded": 1, "expired": 0}
     assert cli.housekeeping(db)["reminded"] == 0  # 한 번만
     case.updated_at = datetime.now(timezone.utc) - timedelta(days=8)
     db.commit()

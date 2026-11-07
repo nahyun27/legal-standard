@@ -42,4 +42,4 @@ export const ACTION_LABEL: Record<string, string> = {
 };
 
 export const USER_STATUS: Record<string, string> = { active: '정상', pending: '가입 미완료', suspended: '이용 정지', withdrawn: '탈퇴' };
-export const PROVIDER: Record<string, string> = { kakao: '카카오', naver: '네이버', dev: '개발용' };
+export const PROVIDER: Record<string, string> = { kakao: '카카오', naver: '네이버', dev: '개발용', password: '이메일' };

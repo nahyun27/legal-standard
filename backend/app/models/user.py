@@ -19,7 +19,8 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
-    social_provider: Mapped[str] = mapped_column(String(20), nullable=False)  # kakao | naver | dev
+    # kakao | naver | dev | password(이메일·비밀번호 가입 — social_id 에 소문자 이메일)
+    social_provider: Mapped[str] = mapped_column(String(20), nullable=False)
     social_id: Mapped[str] = mapped_column(String(255), nullable=False)
     # 카카오는 이메일 제공이 선택 동의라 없을 수 있다 — 같은 이메일이라고 다른 provider 계정을 자동으로 합치지 않는다
     # (계정 탈취 경로가 될 수 있어서. 합치기가 필요하면 로그인한 상태에서 연결하는 기능을 따로 만든다).
@@ -47,6 +48,9 @@ class User(Base):
     # 직원 2단계 인증(TOTP). secret 은 등록 시작 시 만들고, 첫 코드 확인에 성공하면 enabled_at 을 찍는다.
     totp_secret: Mapped[str | None] = mapped_column(String(64), nullable=True)
     totp_enabled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # 이메일·비밀번호 가입 계정만. 원문은 저장하지 않는다(app/core/passwords.py 의 scrypt 해시).
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    password_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # 로그아웃·탈퇴 시 올려서 이미 발급된 토큰(특히 14일짜리 refresh)을 전부 무효화한다.
     token_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
@@ -59,6 +63,10 @@ class User(Base):
     @property
     def is_onboarded(self) -> bool:
         return self.onboarded_at is not None
+
+    @property
+    def has_password(self) -> bool:
+        return self.password_hash is not None
 
     @property
     def is_staff(self) -> bool:

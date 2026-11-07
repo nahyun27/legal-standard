@@ -13,7 +13,7 @@ def login(client, name="tester"):
 # ---------- 가입·로그인 --------------------------------------------------------
 
 def test_providers_reflect_config(client):
-    assert client.get("/api/v1/auth/providers").json() == {"kakao": True, "naver": False, "dev": True}
+    assert client.get("/api/v1/auth/providers").json() == {"kakao": True, "naver": False, "dev": True, "password": True}
 
 
 def test_me_requires_login(client):

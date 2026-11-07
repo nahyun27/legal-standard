@@ -29,9 +29,12 @@ export default function LoginPanel({ next, error, provider, message }: { next?: 
   const [devName, setDevName] = useState('');
   const [busy, setBusy] = useState(false);
   const [devError, setDevError] = useState<string | null>(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [pwError, setPwError] = useState<string | null>(null);
 
   useEffect(() => {
-    api<Providers>('/auth/providers').then(setProviders).catch(() => setProviders({ kakao: false, naver: false, dev: false }));
+    api<Providers>('/auth/providers').then(setProviders).catch(() => setProviders({ kakao: false, naver: false, dev: false, password: false }));
   }, []);
 
   // 이미 로그인된 상태로 들어오면 바로 보낸다
@@ -52,7 +55,22 @@ export default function LoginPanel({ next, error, provider, message }: { next?: 
     }
   }
 
+  async function passwordLogin(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setPwError(null);
+    try {
+      setUser(await api<User>('/auth/password/login', { method: 'POST', body: JSON.stringify({ email, password }) }));
+    } catch (err) {
+      setPwError((err as Error).message);
+      setPassword('');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const err = errorText(error, provider, message);
+  const nextQs = target !== '/' ? `?next=${encodeURIComponent(target)}` : '';
 
   return (
     <div className="auth-card">
@@ -68,6 +86,28 @@ export default function LoginPanel({ next, error, provider, message }: { next?: 
         <SocialButton provider="kakao" enabled={!!providers?.kakao} href={socialLoginUrl('kakao', target)} />
         <SocialButton provider="naver" enabled={!!providers?.naver} href={socialLoginUrl('naver', target)} />
       </div>
+
+      {providers?.password !== false && (
+        <>
+          <div className="auth-or"><span>또는 이메일로</span></div>
+          <form className="pw-login" onSubmit={passwordLogin}>
+            <div className="field">
+              <label htmlFor="login-email">이메일</label>
+              <input id="login-email" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required maxLength={254} />
+            </div>
+            <div className="field">
+              <label htmlFor="login-pw">비밀번호</label>
+              <input id="login-pw" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required maxLength={128} />
+            </div>
+            {pwError && <p className="form-error" role="alert">{pwError}</p>}
+            <button className="btn btn-primary btn-block" disabled={busy}>이메일로 로그인</button>
+            <p className="pw-links">
+              <Link href={`/register${nextQs}`}>이메일로 가입하기</Link>
+              <Link href="/forgot-password">비밀번호 찾기</Link>
+            </p>
+          </form>
+        </>
+      )}
 
       {providers?.dev && (
         <form className="dev-login" onSubmit={devLogin}>

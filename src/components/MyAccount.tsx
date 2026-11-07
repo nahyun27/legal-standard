@@ -4,13 +4,14 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
+import { ChangePasswordForm } from '@/components/PasswordForms';
 import { PageHero } from '@/components/ui';
 import { api, fmtDate, formatPhone, type CaseDetail, type User } from '@/lib/api';
 import { won } from '@/lib/format';
 
 // 사건 카드 진행 막대(%) — 고객용 5단계 기준
 const PROGRESS: Record<string, number> = { pending_payment: 8, reviewing: 25, in_progress: 50, lawyer_review: 70, approved: 85, delivered: 100, rejected: 100, canceled: 0 };
-const PROVIDER_LABEL = { kakao: '카카오', naver: '네이버', dev: '개발용' } as const;
+const PROVIDER_LABEL = { kakao: '카카오', naver: '네이버', dev: '개발용', password: '이메일' } as const;
 
 export default function MyAccount() {
   const router = useRouter();
@@ -109,6 +110,7 @@ export default function MyAccount() {
             <input type="checkbox" checked={!!user.marketing_consent} disabled={busy} onChange={toggleMarketing} />
             <span>서비스 소식·혜택 안내 받기</span>
           </label>
+          {user.has_password && <ChangePasswordForm />}
           <div style={{ display: 'grid', gap: 8, marginTop: 20 }}>
             <button className="btn btn-ghost" onClick={signOut}>로그아웃</button>
             <button className="link-btn" onClick={withdraw}>회원 탈퇴</button>

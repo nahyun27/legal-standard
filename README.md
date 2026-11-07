@@ -25,7 +25,7 @@
 
 - 프론트: Next.js 16 (App Router) · React 19 · TypeScript · 순수 CSS 디자인 시스템(`src/app/globals.css`) · lucide-react
 - 백엔드: FastAPI · SQLAlchemy 2 · Alembic · PostgreSQL (`backend/`)
-- 로그인: 카카오·네이버 소셜 로그인(비밀번호 저장 안 함), httpOnly 쿠키 세션
+- 로그인: 카카오·네이버 소셜 로그인 + 이메일·비밀번호(scrypt 해시, 실패 잠금, 메일 재설정 링크), httpOnly 쿠키 세션. 관리자는 OTP 2단계 인증 필수
 - CI: GitHub Actions — 푸시·PR 마다 백엔드 테스트, 타입체크, 빌드, 광고 문구 검사
 
 ## 실행
@@ -93,6 +93,7 @@ deploy/                Nginx·systemd 설정, 배포 절차
 | `/journeys` `/journeys/:slug` | 여정 목록 · 단계별 가격 |
 | `/intake/:slug` | 온라인 문진 |
 | `/login` `/signup` `/auth/callback` | 로그인 · 가입 마무리 · 소셜 로그인 복귀 |
+| `/register` `/forgot-password` `/reset-password` | 이메일 가입 · 비밀번호 찾기 · 재설정 |
 | `/my` `/my/cases/:id` | 내 사건 목록 · 사건 상세 |
 | `/payments/success` `/payments/fail` | 결제창 복귀 |
 | `/admin/*` | 관리자(직원 전용) |

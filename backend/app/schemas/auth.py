@@ -3,6 +3,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.core.passwords import normalize_email
+
 _MOBILE = re.compile(r"^01[016789]\d{7,8}$")
 
 
@@ -24,6 +26,7 @@ class ProvidersResponse(BaseModel):
     kakao: bool
     naver: bool
     dev: bool
+    password: bool = True
 
 
 class UserResponse(BaseModel):
@@ -38,6 +41,7 @@ class UserResponse(BaseModel):
     is_onboarded: bool
     is_admin: bool
     is_lawyer: bool
+    has_password: bool = False
     created_at: datetime
 
 
@@ -83,3 +87,31 @@ class ProfileUpdateRequest(BaseModel):
 
 class DevLoginRequest(BaseModel):
     name: str = Field(min_length=1, max_length=30)
+
+
+class PasswordRegisterRequest(BaseModel):
+    """이메일·비밀번호 가입. 실명·연락처·약관 동의는 기존 가입 마무리(/auth/onboarding)에서 받는다."""
+
+    email: str
+    password: str = Field(max_length=128)
+
+    _email = field_validator("email")(normalize_email)
+
+
+class PasswordLoginRequest(BaseModel):
+    email: str = Field(max_length=254)
+    password: str = Field(max_length=128)
+
+
+class PasswordForgotRequest(BaseModel):
+    email: str = Field(max_length=254)
+
+
+class PasswordResetRequest(BaseModel):
+    token: str = Field(min_length=20, max_length=200)
+    password: str = Field(max_length=128)
+
+
+class PasswordChangeRequest(BaseModel):
+    current_password: str = Field(max_length=128)
+    new_password: str = Field(max_length=128)

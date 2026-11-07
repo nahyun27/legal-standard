@@ -41,7 +41,7 @@ export async function api<T>(path: string, init: RequestInit = {}, retry = true)
 
 export interface User {
   id: number;
-  social_provider: 'kakao' | 'naver' | 'dev';
+  social_provider: 'kakao' | 'naver' | 'dev' | 'password';
   email: string | null;
   name: string | null;
   phone: string | null;
@@ -49,6 +49,8 @@ export interface User {
   is_onboarded: boolean;
   is_admin: boolean;
   is_lawyer: boolean;
+  /** 이메일·비밀번호 가입 계정 */
+  has_password: boolean;
   created_at: string;
 }
 
@@ -56,6 +58,7 @@ export interface Providers {
   kakao: boolean;
   naver: boolean;
   dev: boolean;
+  password: boolean;
 }
 
 /** 소셜 로그인 시작 주소. 백엔드가 provider 인가 화면으로 보낸다. */

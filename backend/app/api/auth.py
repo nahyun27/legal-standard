@@ -4,8 +4,9 @@
 find-or-create → httpOnly 쿠키 발급 → 프론트 /auth/callback 으로 redirect. 토큰은 URL·응답 body 로 나가지 않는다.
 """
 
+import hashlib
 import secrets
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Literal
 from urllib.parse import urlencode
 
@@ -15,14 +16,31 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.audit import client_ip, record
 from app.core.config import settings
 from app.core.cookies import clear_auth_cookies, get_access_token, get_refresh_token, set_auth_cookies
 from app.core.database import get_db
 from app.core.deps import get_current_user, user_from_token
+from app.core.notify import send_mail
+from app.core.passwords import (
+    check_policy,
+    clear_failures,
+    guard_attempts,
+    hash_password,
+    normalize_email,
+    record_failure,
+    verify_password,
+)
+from app.models.credentials import PasswordReset
 from app.models.user import User
 from app.schemas.auth import (
     DevLoginRequest,
     OnboardingRequest,
+    PasswordChangeRequest,
+    PasswordForgotRequest,
+    PasswordLoginRequest,
+    PasswordRegisterRequest,
+    PasswordResetRequest,
     ProfileUpdateRequest,
     ProvidersResponse,
     SessionResponse,
@@ -226,6 +244,139 @@ def dev_login(payload: DevLoginRequest, response: Response, db: Session = Depend
     return user
 
 
+# ---------- 이메일·비밀번호 -----------------------------------------------------
+# 아이디는 이메일(소문자). 계정은 social_provider="password", social_id=이메일 — 소셜 계정과 같은 이메일이어도 자동으로 합치지 않는다.
+
+RESET_TTL = timedelta(minutes=30)
+RESET_PER_HOUR = 3
+GENERIC_LOGIN_ERROR = "이메일 또는 비밀번호가 맞지 않습니다."
+
+
+def _password_user(db: Session, email: str) -> User | None:
+    return db.scalar(select(User).where(User.social_provider == "password", User.social_id == email))
+
+
+def _policy(password: str, email: str | None) -> None:
+    try:
+        check_policy(password, email)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+
+
+@router.post("/password/register", response_model=UserResponse)
+def password_register(payload: PasswordRegisterRequest, request: Request, response: Response, db: Session = Depends(get_db)) -> User:
+    """가입 후 바로 로그인 상태가 되고, 프론트는 가입 마무리(/signup)로 보낸다."""
+    _policy(payload.password, payload.email)
+    if _password_user(db, payload.email) is not None:
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="이미 가입된 이메일입니다. 로그인하거나 비밀번호 찾기를 이용해 주세요.")
+    t = _now()
+    user = User(social_provider="password", social_id=payload.email, email=payload.email,
+                password_hash=hash_password(payload.password), password_changed_at=t, last_login_at=t)
+    db.add(user)
+    db.flush()
+    record(db, "auth.password_register", actor_id=user.id, target_type="user", target_id=user.id, request=request)
+    db.commit()
+    db.refresh(user)
+    set_auth_cookies(response, user.id, user.token_version)
+    return user
+
+
+@router.post("/password/login", response_model=UserResponse)
+def password_login(payload: PasswordLoginRequest, request: Request, response: Response, db: Session = Depends(get_db)) -> User:
+    """틀린 이유(없는 이메일 / 틀린 비밀번호)를 구분해 알려 주지 않는다. 같은 이메일 15분 5회, 같은 IP 15분 30회 실패 시 잠근다."""
+    try:
+        email = normalize_email(payload.email)
+    except ValueError:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=GENERIC_LOGIN_ERROR) from None
+    ip = client_ip(request)
+    guard_attempts(db, email, ip)
+    user = _password_user(db, email)
+    if not verify_password(payload.password, user.password_hash if user else None) or user is None:
+        record_failure(db, email, ip)
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=GENERIC_LOGIN_ERROR)
+    if not user.is_active:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="이용이 제한된 계정입니다.")
+    clear_failures(db, email)
+    user.last_login_at = _now()
+    db.commit()
+    set_auth_cookies(response, user.id, user.token_version)
+    return user
+
+
+@router.post("/password/forgot")
+def password_forgot(payload: PasswordForgotRequest, request: Request, db: Session = Depends(get_db)) -> dict[str, str]:
+    """가입 여부와 상관없이 같은 응답을 준다(가입 여부를 알아내는 데 쓰이지 않게). 링크는 30분 유효, 한 시간에 3번까지."""
+    try:
+        email = normalize_email(payload.email)
+    except ValueError:
+        return {"status": "ok"}
+    user = _password_user(db, email)
+    if user is None or not user.is_active:
+        return {"status": "ok"}
+    t = _now()
+    recent = db.scalars(select(PasswordReset).where(PasswordReset.user_id == user.id)).all()
+    if sum(1 for r in recent if _aware(r.created_at) > t - timedelta(hours=1)) >= RESET_PER_HOUR:
+        return {"status": "ok"}
+    for r in recent:  # 이전 링크는 못 쓰게
+        if r.used_at is None:
+            r.used_at = t
+    token = secrets.token_urlsafe(32)
+    db.add(PasswordReset(user_id=user.id, token_hash=hashlib.sha256(token.encode()).hexdigest(), expires_at=t + RESET_TTL,
+                         ip=client_ip(request), created_at=t))
+    record(db, "auth.password_forgot", actor_id=user.id, target_type="user", target_id=user.id, request=request)
+    db.commit()
+    base = settings.FRONTEND_BASE_URL or settings.BACKEND_BASE_URL
+    send_mail(
+        email,
+        "[리걸스탠다드] 비밀번호 재설정 안내",
+        "아래 링크에서 새 비밀번호를 정해 주세요. 링크는 30분 동안 한 번만 쓸 수 있습니다.\n\n"
+        f"{base}/reset-password?token={token}\n\n"
+        "직접 요청하지 않으셨다면 이 메일을 무시하셔도 됩니다. 비밀번호는 바뀌지 않습니다.",
+    )
+    return {"status": "ok"}
+
+
+def _aware(dt: datetime) -> datetime:
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+@router.post("/password/reset")
+def password_reset(payload: PasswordResetRequest, request: Request, response: Response, db: Session = Depends(get_db)) -> dict[str, str]:
+    """새 비밀번호를 정하면 다른 기기의 로그인은 모두 끊고(token_version), 이 브라우저는 다시 로그인하게 한다."""
+    row = db.scalar(select(PasswordReset).where(PasswordReset.token_hash == hashlib.sha256(payload.token.encode()).hexdigest()))
+    if row is None or row.used_at is not None or _aware(row.expires_at) < _now():
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="링크가 만료되었거나 이미 사용되었습니다. 비밀번호 찾기를 다시 해 주세요.")
+    user = db.get(User, row.user_id)
+    if user is None or not user.is_active or user.social_provider != "password":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="링크가 만료되었거나 이미 사용되었습니다. 비밀번호 찾기를 다시 해 주세요.")
+    _policy(payload.password, user.email)
+    t = _now()
+    row.used_at = t
+    user.password_hash, user.password_changed_at = hash_password(payload.password), t
+    user.token_version += 1
+    clear_failures(db, user.social_id)
+    record(db, "auth.password_reset", actor_id=user.id, target_type="user", target_id=user.id, request=request)
+    db.commit()
+    clear_auth_cookies(response)
+    return {"status": "ok"}
+
+
+@router.post("/password/change")
+def password_change(payload: PasswordChangeRequest, request: Request, response: Response,
+                    user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> dict[str, str]:
+    if user.password_hash is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="소셜 로그인 계정은 비밀번호가 없습니다.")
+    if not verify_password(payload.current_password, user.password_hash):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="현재 비밀번호가 맞지 않습니다.")
+    _policy(payload.new_password, user.email)
+    user.password_hash, user.password_changed_at = hash_password(payload.new_password), _now()
+    user.token_version += 1  # 다른 기기 로그인은 끊고, 이 브라우저에는 새 토큰을 준다
+    record(db, "auth.password_change", actor_id=user.id, target_type="user", target_id=user.id, request=request)
+    db.commit()
+    set_auth_cookies(response, user.id, user.token_version)
+    return {"status": "ok"}
+
+
 # ---------- 세션 ---------------------------------------------------------------
 
 
@@ -324,6 +475,7 @@ def delete_me(response: Response, user: User = Depends(get_current_user), db: Se
     user.withdrawn_at = _now()
     user.social_id = f"deleted:{user.id}:{secrets.token_hex(4)}"
     user.email = user.name = user.phone = None
+    user.password_hash = None
     user.marketing_consent = None
     user.token_version += 1
     db.commit()
