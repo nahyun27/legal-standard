@@ -809,6 +809,9 @@ a.card:hover { box-shadow: var(--shadow-md); }
 @media (max-width: 620px) { .seg-tabs { border-radius: 14px; } }
 .shelf-anim { margin-top: 34px; }
 .service-card { padding-bottom: 16px; }
+/* 같은 줄 카드 높이가 맞춰질 때 설명이 늘어나 가격을 바닥으로 밀지 않게 — 남는 공간은 "자세히 보기" 위로만 */
+.service-card .use { flex: 0 0 auto; }
+a.card.service-card .card-more { margin-top: auto; padding-top: 14px; }
 .card .card-more { margin-top: 14px; display: inline-flex; align-items: center; gap: 2px; font-size: .78rem; font-weight: 700; color: var(--ink-soft); transition: color .2s, gap .2s; }
 a.card:hover .card-more { color: var(--tag); gap: 6px; }
 .upcoming-label { align-self: flex-start; font-size: .68rem; font-weight: 800; color: var(--warn); background: var(--warn-soft); padding: 2px 8px; border-radius: 4px; margin-bottom: 8px; }
@@ -973,7 +976,8 @@ a.card:hover .card-more { color: var(--tag); gap: 6px; }
 .org-root { border: 1.5px solid var(--ink); }
 .org-root svg { color: var(--tag); }
 .org-branches { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 44px; }
-.org-branches::before { content: ''; position: absolute; top: -26px; left: 25%; right: 25%; height: 2px; background: var(--ink); }
+/* 가로선 양 끝 = 두 칸의 가운데. 칸 사이 간격(24px)의 절반만큼 바깥으로, 세로선 두께(2px)만큼 더 */
+.org-branches::before { content: ''; position: absolute; top: -26px; left: calc(25% - 7px); right: calc(25% - 7px); height: 2px; background: var(--ink); }
 .org-branches::after { content: ''; position: absolute; top: -44px; left: 50%; width: 2px; height: 18px; background: var(--ink); }
 .org-branches .org-node { position: relative; }
 .org-branches .org-node::before { content: ''; position: absolute; top: -26px; left: 50%; width: 2px; height: 26px; background: var(--ink); }

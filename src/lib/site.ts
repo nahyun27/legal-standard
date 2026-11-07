@@ -8,7 +8,7 @@ export const FIRM = {
   brandEn: 'LEGAL STANDARD',
   name: '법무법인(유한) 에스제이파트너스',
   representative: '대표변호사 (확인 필요)',
-  adResponsibleLawyer: '광고책임변호사 (확인 필요)',
+  adResponsibleLawyer: '광고책임변호사 윤승진',
   // 방안 A(인증 후)에서만 노출 — 변협 광고규정 §6 검토변호사 성명 표시
   aiReviewLawyer: '○○○ 변호사',
   aiSystemRegNo: '등록번호 기재란',
@@ -18,6 +18,8 @@ export const FIRM = {
   tel: '02-0000-0000',
   email: 'help@legalstandard.example',
   hours: '평일 09:00–18:00 (온라인 접수는 상시)',
+  // 개인정보 보호책임자(개인정보보호법 제31조) — 성명·직위·연락처를 법인 확인 후 채운다
+  privacyOfficer: '개인정보 보호책임자 (확인 필요)',
 } as const;
 
 export const TAGLINE = '수임료를 먼저 보여드리는 법률서비스';
