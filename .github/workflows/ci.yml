@@ -60,7 +60,7 @@ jobs:
       - name: 운영 서버 배포 (SSM)
         run: |
           set -euo pipefail
-          CMD='set -euo pipefail; cd /home/ubuntu/legal-standard && sudo -u ubuntu git pull -q --ff-only && bash deploy/server-deploy.sh'
+          CMD='set -eu; cd /home/ubuntu/legal-standard && sudo -u ubuntu git pull -q --ff-only && bash deploy/server-deploy.sh'
           CID=$(aws ssm send-command --instance-ids "$INSTANCE_ID" --document-name AWS-RunShellScript \
             --comment "github ${GITHUB_SHA::7}" --timeout-seconds 60 \
             --parameters "$(jq -nc --arg c "$CMD" '{commands:[$c], executionTimeout:["1800"]}')" \

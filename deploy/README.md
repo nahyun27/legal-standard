@@ -89,7 +89,7 @@ npm ci && npm run build && npm run check:copy && sudo systemctl restart legalsta
 `main` 에 푸시하면 `.github/workflows/ci.yml` 이 테스트·빌드를 돌리고, 통과하면 `deploy` 작업이 운영 서버에 배포한다.
 
 - AWS 키를 저장소·GitHub 비밀값에 두지 않는다. GitHub OIDC 로 IAM 역할 `legalstandard-github-deploy` 를 잠깐 받는다.
-  이 역할은 `repo:nahyun27/legal-standard:ref:refs/heads/main` 만 받을 수 있고, 운영 서버 한 대에 SSM 명령을 보내는 것만 허용된다.
+  이 역할은 `repo:nahyun27@62279962/legal-standard@1430822439:ref:refs/heads/main`(저장소 고유 ID 형식) 만 받을 수 있고, 운영 서버 한 대에 SSM 명령을 보내는 것만 허용된다.
 - 서버에서는 `git pull` 후 `deploy/server-deploy.sh` 를 root 로 실행한다(.env 재생성 → 마이그레이션 → 빌드 → 재시작 → 응답 확인).
 - 비밀값은 `deploy/put-secret.sh <이름>` 으로 SSM Parameter Store 에 넣고, 다음 배포 때 .env 에 반영된다.
   읽는 이름: `TOSS_SECRET_KEY`, `TOSS_CLIENT_KEY`(필수), `SMTP_PASSWORD`, `KAKAO_CLIENT_ID`, `KAKAO_CLIENT_SECRET`(선택).
