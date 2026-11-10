@@ -694,6 +694,9 @@ details.faq summary:hover { color: var(--tag); }
 .mfa-qr { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 6px 0 16px; }
 .mfa-qr img { border: 1px solid var(--line); border-radius: 10px; padding: 8px; background: #fff; }
 .mfa-qr small { color: var(--muted); font-size: .74rem; text-align: center; word-break: break-all; }
+.mfa-tabs { margin: 0 0 16px; }
+.mfa-tabs button { flex: 1; }
+.mfa-tabs button:disabled { opacity: .45; cursor: not-allowed; }
 .mfa-code { font-size: 1.5rem !important; letter-spacing: .4em; text-align: center; font-variant-numeric: tabular-nums; }
 
 .cite-box { display: grid; gap: 8px; }

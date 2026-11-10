@@ -44,7 +44,7 @@ def get_staff_pre_mfa(user: User = Depends(get_current_user)) -> User:
 def get_staff_user(request: Request, user: User = Depends(get_staff_pre_mfa)) -> User:
     """직원 + (요구되면) 2단계 인증 통과. 운영 환경에서는 항상 요구된다."""
     if settings.mfa_required:
-        if not user.totp_enabled_at:
+        if not user.mfa_enabled:
             raise HTTPException(status.HTTP_403_FORBIDDEN, detail="MFA_SETUP_REQUIRED")
         if not mfa.mfa_passed(request, user):
             raise HTTPException(status.HTTP_403_FORBIDDEN, detail="MFA_REQUIRED")
@@ -72,13 +72,15 @@ def mask_phone(p: str | None) -> str | None:
 def admin_me(request: Request, user: User = Depends(get_staff_pre_mfa)) -> dict:
     return {
         "id": user.id, "name": user.name, "is_admin": user.is_admin, "is_lawyer": user.is_lawyer,
-        "mfa_required": settings.mfa_required, "mfa_enabled": bool(user.totp_enabled_at), "mfa_passed": mfa.mfa_passed(request, user),
+        "mfa_required": settings.mfa_required, "mfa_enabled": user.mfa_enabled, "mfa_passed": mfa.mfa_passed(request, user),
+        "mfa_method": "totp" if user.totp_enabled_at else "email" if user.mfa_email_enabled_at else None,
+        "mfa_email": mfa.mask_email(user.email) if user.email else None,
     }
 
 
 @router.post("/mfa/setup")
 def mfa_setup(user: User = Depends(get_staff_pre_mfa), db: Session = Depends(get_db)) -> dict:
-    if user.totp_enabled_at:
+    if user.mfa_enabled:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="이미 2단계 인증을 등록했습니다.")
     if not user.totp_secret:
         user.totp_secret = mfa.new_secret()
@@ -88,7 +90,7 @@ def mfa_setup(user: User = Depends(get_staff_pre_mfa), db: Session = Depends(get
 
 @router.post("/mfa/enable")
 def mfa_enable(payload: MfaCodeIn, request: Request, response: Response, user: User = Depends(get_staff_pre_mfa), db: Session = Depends(get_db)) -> dict:
-    if user.totp_enabled_at:
+    if user.mfa_enabled:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="이미 2단계 인증을 등록했습니다.")
     if not mfa.verify_code(user, payload.code):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="인증 코드가 맞지 않습니다.")
@@ -107,6 +109,33 @@ def mfa_verify(payload: MfaCodeIn, request: Request, response: Response, user: U
         record(db, "mfa.fail", actor_id=user.id, target_type="user", target_id=user.id, request=request)
         db.commit()
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="인증 코드가 맞지 않습니다.")
+    mfa.set_mfa_cookie(response, user)
+    return {"status": "ok"}
+
+
+@router.post("/mfa/email/send")
+def mfa_email_send(user: User = Depends(get_staff_pre_mfa), db: Session = Depends(get_db)) -> dict:
+    """이메일 코드 보내기 — 등록 전(이메일 방식으로 등록하려는 경우)이나 이메일 방식을 등록한 직원만.
+    인증 앱을 등록한 직원에게는 막는다(더 약한 방식으로 우회하지 못하게)."""
+    if user.totp_enabled_at:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="인증 앱으로 2단계 인증을 등록한 계정입니다. 인증 앱 코드를 입력해 주세요.")
+    return {"sent_to": mfa.send_email_code(db, user)}
+
+
+@router.post("/mfa/email/verify")
+def mfa_email_verify(payload: MfaCodeIn, request: Request, response: Response, user: User = Depends(get_staff_pre_mfa), db: Session = Depends(get_db)) -> dict:
+    """이메일 코드 확인. 아직 아무 방식도 등록하지 않았다면 이것으로 이메일 방식이 등록된다."""
+    if user.totp_enabled_at:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="인증 앱으로 2단계 인증을 등록한 계정입니다. 인증 앱 코드를 입력해 주세요.")
+    if not mfa.verify_email_code(db, user, payload.code):
+        record(db, "mfa.fail", actor_id=user.id, target_type="user", target_id=user.id, request=request)
+        db.commit()
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="인증 코드가 맞지 않습니다.")
+    if not user.mfa_email_enabled_at:
+        user.mfa_email_enabled_at = now()
+        user.totp_secret = None  # 앱 등록을 시작했다가 이메일로 바꾼 경우 남은 비밀값 정리
+        record(db, "mfa.enable", actor_id=user.id, target_type="user", target_id=user.id, request=request, reason="이메일 코드")
+        db.commit()
     mfa.set_mfa_cookie(response, user)
     return {"status": "ok"}
 

@@ -87,7 +87,7 @@ def main() -> None:
             u = db.get(User, args.user_id)
             if u is None:
                 raise SystemExit("회원을 찾을 수 없습니다.")
-            u.totp_secret, u.totp_enabled_at = None, None
+            u.totp_secret, u.totp_enabled_at, u.mfa_email_enabled_at = None, None, None
             u.token_version += 1  # 기존 2단계 인증 쿠키·세션도 끊는다
             record(db, "mfa.reset", actor_id=None, target_type="user", target_id=u.id, reason=f"[서버 명령어] {args.reason}")
             db.commit()

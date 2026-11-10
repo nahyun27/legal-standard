@@ -44,13 +44,13 @@ export default function AdminSettings() {
       <section className="admin-card">
         <h2><ShieldCheck size={17} style={{ verticalAlign: -3 }} /> 2단계 인증</h2>
         {staff.mfa_enabled ? (
-          <p>등록되어 있습니다. 인증 앱을 바꾸거나 휴대폰을 잃어버렸다면 서버 관리자에게 초기화를 요청하세요 (<code>python -m app.cli reset-mfa</code>).</p>
+          <p>{staff.mfa_method === 'email' ? `이메일 코드 방식으로 등록되어 있습니다${staff.mfa_email ? ` (${staff.mfa_email})` : ''}.` : '인증 앱으로 등록되어 있습니다.'} 방식을 바꾸거나 휴대폰을 잃어버렸다면 서버 관리자에게 초기화를 요청하세요 (<code>python -m app.cli reset-mfa</code>).</p>
         ) : enrolling ? (
-          <div style={{ maxWidth: 420 }}><MfaSetup onDone={() => { setEnrolling(false); reload(); }} /></div>
+          <div style={{ maxWidth: 420 }}><MfaSetup email={staff.mfa_email} onDone={() => { setEnrolling(false); reload(); }} /></div>
         ) : (
           <>
             <p>{staff.mfa_required ? '이 환경에서는 2단계 인증이 필수입니다.' : '개발 환경이라 필수는 아니지만, 운영 환경에서는 반드시 필요합니다. 미리 등록해 두세요.'}</p>
-            <button className="btn btn-primary" style={{ marginTop: 10 }} onClick={() => setEnrolling(true)}>인증 앱 등록하기</button>
+            <button className="btn btn-primary" style={{ marginTop: 10 }} onClick={() => setEnrolling(true)}>2단계 인증 등록하기</button>
           </>
         )}
       </section>

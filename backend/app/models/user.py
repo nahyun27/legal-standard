@@ -48,6 +48,8 @@ class User(Base):
     # 직원 2단계 인증(TOTP). secret 은 등록 시작 시 만들고, 첫 코드 확인에 성공하면 enabled_at 을 찍는다.
     totp_secret: Mapped[str | None] = mapped_column(String(64), nullable=True)
     totp_enabled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # 인증 앱이 없는 직원을 위한 대안 — 가입 이메일로 받은 6자리 코드(app/core/mfa.py). 둘 중 하나만 등록돼 있으면 된다.
+    mfa_email_enabled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # 이메일·비밀번호 가입 계정만. 원문은 저장하지 않는다(app/core/passwords.py 의 scrypt 해시).
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     password_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -63,6 +65,10 @@ class User(Base):
     @property
     def is_onboarded(self) -> bool:
         return self.onboarded_at is not None
+
+    @property
+    def mfa_enabled(self) -> bool:
+        return bool(self.totp_enabled_at or self.mfa_email_enabled_at)
 
     @property
     def has_password(self) -> bool:

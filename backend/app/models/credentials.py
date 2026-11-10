@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, func
+from sqlalchemy import DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -29,4 +29,19 @@ class LoginFailure(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     key: Mapped[str] = mapped_column(String(320), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
+
+
+class MfaEmailCode(Base):
+    """직원 2단계 인증용 이메일 코드. 원문은 메일로만 나가고 여기에는 HMAC 만 남긴다.
+    10분 유효·한 번 쓰면 끝·5번 틀리면 그 코드는 버린다. 새 코드를 보내면 이전 코드는 못 쓴다."""
+
+    __tablename__ = "mfa_email_codes"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    code_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
