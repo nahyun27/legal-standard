@@ -66,6 +66,9 @@ class Settings(BaseSettings):
     ADMIN_MFA_HOURS: int = 12
 
     # 알림 — 비어 있는 채널은 건너뛰고 기록만 남긴다
+    # 메일: SES_REGION 이 있으면 AWS SES(서버의 IAM 역할로 보냄 — 비밀번호 없음), 없고 SMTP_HOST 가 있으면 SMTP.
+    SES_REGION: str | None = None
+    MAIL_FROM: str | None = None           # 예) 리걸스탠다드 <no-reply@legalstandard.co.kr>
     SMTP_HOST: str | None = None
     SMTP_PORT: int = 587
     SMTP_USER: str | None = None
@@ -101,6 +104,10 @@ class Settings(BaseSettings):
     @property
     def payment_simulated(self) -> bool:
         return not self.TOSS_SECRET_KEY
+
+    @property
+    def mail_enabled(self) -> bool:
+        return bool(self.SES_REGION or self.SMTP_HOST)
 
     @property
     def mfa_required(self) -> bool:

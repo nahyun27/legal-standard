@@ -92,6 +92,7 @@ npm ci && npm run build && npm run check:copy && sudo systemctl restart legalsta
   이 역할은 `repo:nahyun27@62279962/legal-standard@1430822439:ref:refs/heads/main`(저장소 고유 ID 형식) 만 받을 수 있고, 운영 서버 한 대에 SSM 명령을 보내는 것만 허용된다.
 - 서버에서는 `git pull` 후 `deploy/server-deploy.sh` 를 root 로 실행한다(.env 재생성 → 마이그레이션 → 빌드 → 재시작 → 응답 확인).
 - 비밀값은 `deploy/put-secret.sh <이름>` 으로 SSM Parameter Store 에 넣고, 다음 배포 때 .env 에 반영된다.
-  읽는 이름: `TOSS_SECRET_KEY`, `TOSS_CLIENT_KEY`(필수), `SMTP_PASSWORD`, `KAKAO_CLIENT_ID`, `KAKAO_CLIENT_SECRET`(선택).
+  읽는 이름: `TOSS_SECRET_KEY`, `TOSS_CLIENT_KEY`(필수), `KAKAO_CLIENT_ID`, `KAKAO_CLIENT_SECRET`(선택).
 - 비밀값만 바꾸고 코드 변경 없이 다시 배포하려면 GitHub → Actions → CI → Run workflow 가 아니라, 빈 커밋을 푸시한다
   (`git commit --allow-empty -m "재배포" && git push`).
+- 메일은 AWS SES(도메인 legalstandard.co.kr, DKIM)로 보낸다. 서버 역할 `legalstandard-ec2` 의 인라인 정책 `ses-send` 가 @legalstandard.co.kr 발신만 허용한다 — 메일 비밀번호는 없다.

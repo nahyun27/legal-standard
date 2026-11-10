@@ -21,8 +21,6 @@ DBPW=$(cat /home/ubuntu/.legal_db_pw)
 # JWT 서명키는 처음 한 번만 만든다(바꾸면 모든 로그인이 풀린다)
 JWT=$(grep -s '^JWT_SECRET_KEY=' "$ENVF" | cut -d= -f2- || true)
 [ ${#JWT} -ge 32 ] || JWT=$(openssl rand -hex 32)
-# 구글 앱 비밀번호는 "abcd efgh ijkl mnop" 처럼 띄어 보여 준다 — 공백 제거
-SMTP_PW=$(getp SMTP_PASSWORD | tr -d '[:space:]')
 KAKAO_ID=$(getp KAKAO_CLIENT_ID)
 KAKAO_SECRET=$(getp KAKAO_CLIENT_SECRET)
 
@@ -42,23 +40,18 @@ TOSS_CLIENT_KEY=${TOSS_CK}
 STORAGE_DIR=${APP}/backend/storage
 MAX_UPLOAD_MB=20
 EOF
-  # 메일(비밀번호 재설정·관리자 이메일 인증) — Google Workspace admin@ 계정의 앱 비밀번호
-  if [ -n "$SMTP_PW" ]; then
-    cat <<EOF
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=admin@legalstandard.co.kr
-SMTP_PASSWORD=${SMTP_PW}
-SMTP_FROM=리걸스탠다드 <admin@legalstandard.co.kr>
+  # 메일(비밀번호 재설정·관리자 이메일 인증·사건 알림) — AWS SES. 서버 IAM 역할(legalstandard-ec2 의 ses-send)로 보내므로 비밀번호가 없다.
+  cat <<EOF
+SES_REGION=ap-northeast-2
+MAIL_FROM=리걸스탠다드 <no-reply@legalstandard.co.kr>
 EOF
-  fi
   if [ -n "$KAKAO_ID" ] && [ -n "$KAKAO_SECRET" ]; then
     printf 'KAKAO_CLIENT_ID=%s\nKAKAO_CLIENT_SECRET=%s\n' "$KAKAO_ID" "$KAKAO_SECRET"
   fi
 } > "$ENVF.tmp"
 chown ubuntu:ubuntu "$ENVF.tmp" && mv "$ENVF.tmp" "$ENVF" && chmod 600 "$ENVF"
-echo ".env: toss ${TOSS_SK%%_sk_*} · smtp $([ -n "$SMTP_PW" ] && echo 있음 || echo 없음) · kakao $([ -n "$KAKAO_ID" ] && echo 있음 || echo 없음)"
-unset TOSS_SK TOSS_CK DBPW JWT SMTP_PW KAKAO_ID KAKAO_SECRET
+echo ".env: toss ${TOSS_SK%%_sk_*} · mail ses · kakao $([ -n "$KAKAO_ID" ] && echo 있음 || echo 없음)"
+unset TOSS_SK TOSS_CK DBPW JWT KAKAO_ID KAKAO_SECRET
 
 # ---- 2. 빌드 ------------------------------------------------------------------
 sudo -u ubuntu bash -lc '

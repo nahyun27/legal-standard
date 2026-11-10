@@ -101,7 +101,7 @@ def send_email_code(db: Session, user: User) -> str:
     """새 코드를 만들어 가입 이메일로 보낸다. 이전 코드는 못 쓰게 된다. 돌려주는 값은 가린 이메일 주소."""
     if not user.email:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="계정에 이메일이 없어 이메일 인증을 쓸 수 없습니다.")
-    if settings.ENV == "production" and not settings.SMTP_HOST:
+    if settings.ENV == "production" and not settings.mail_enabled:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="메일 발송이 아직 설정되지 않아 이메일 인증을 쓸 수 없습니다. 서버 관리자에게 문의해 주세요.")
     t = now()
     sent = db.scalar(select(func.count()).select_from(MfaEmailCode).where(MfaEmailCode.user_id == user.id, MfaEmailCode.created_at > t - timedelta(hours=1)))

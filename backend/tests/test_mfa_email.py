@@ -86,4 +86,23 @@ def test_email_mfa_needs_smtp_in_production(client, db, outbox, monkeypatch):
     staff_with_email(client, db)
     monkeypatch.setattr(settings, "ENV", "production")
     monkeypatch.setattr(settings, "SMTP_HOST", None)
+    monkeypatch.setattr(settings, "SES_REGION", None)
     assert client.post("/api/v1/admin/mfa/email/send").status_code == 503
+
+
+def test_send_mail_uses_ses_when_configured(monkeypatch):
+    import sys
+    import types
+
+    from app.core import notify
+
+    calls = []
+    fake = types.SimpleNamespace(client=lambda name, region_name: types.SimpleNamespace(send_email=lambda **kw: calls.append((name, region_name, kw))))
+    monkeypatch.setitem(sys.modules, "boto3", fake)
+    monkeypatch.setattr(settings, "SES_REGION", "ap-northeast-2")
+    monkeypatch.setattr(settings, "MAIL_FROM", "리걸스탠다드 <no-reply@legalstandard.co.kr>")
+    assert notify.send_mail("a@example.com", "제목", "본문") is True
+    name, region, kw = calls[0]
+    assert name == "sesv2" and region == "ap-northeast-2"
+    assert kw["FromEmailAddress"].endswith("<no-reply@legalstandard.co.kr>") and kw["Destination"] == {"ToAddresses": ["a@example.com"]}
+    assert kw["Content"]["Simple"]["Body"]["Text"]["Data"].startswith("본문")
