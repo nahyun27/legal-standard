@@ -35,3 +35,45 @@ jobs:
       - run: npm run build
       # 광고 영역 금칙어(무료·최저가·B 트랙의 "AI" 등)가 있으면 실패 — 문구 규범을 문서가 아니라 배포 조건으로
       - run: npm run check:copy
+
+  # main 에 푸시되고 테스트·빌드가 통과하면 운영 서버에 배포한다.
+  # AWS 키는 저장소에 두지 않는다 — GitHub OIDC 로 배포 때만 잠깐 역할(legalstandard-github-deploy)을 받는다.
+  # 그 역할은 이 저장소의 main 브랜치만 받을 수 있고, 운영 서버 한 대에 SSM 명령을 보내는 것만 할 수 있다.
+  deploy:
+    needs: [backend, frontend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: false
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      AWS_REGION: ap-northeast-2
+      INSTANCE_ID: i-0f9db3456a1dd0a2c
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::062606955391:role/legalstandard-github-deploy
+          aws-region: ap-northeast-2
+      - name: 운영 서버 배포 (SSM)
+        run: |
+          set -euo pipefail
+          CMD='set -euo pipefail; cd /home/ubuntu/legal-standard && sudo -u ubuntu git pull -q --ff-only && bash deploy/server-deploy.sh'
+          CID=$(aws ssm send-command --instance-ids "$INSTANCE_ID" --document-name AWS-RunShellScript \
+            --comment "github ${GITHUB_SHA::7}" --timeout-seconds 60 \
+            --parameters "$(jq -nc --arg c "$CMD" '{commands:[$c], executionTimeout:["1800"]}')" \
+            --query Command.CommandId --output text)
+          echo "command $CID"
+          for i in $(seq 1 120); do
+            ST=$(aws ssm get-command-invocation --command-id "$CID" --instance-id "$INSTANCE_ID" --query Status --output text 2>/dev/null || echo Pending)
+            case "$ST" in Pending|InProgress|Delayed) sleep 10;; *) break;; esac
+          done
+          aws ssm get-command-invocation --command-id "$CID" --instance-id "$INSTANCE_ID" --query StandardOutputContent --output text
+          echo "--- stderr ---"
+          aws ssm get-command-invocation --command-id "$CID" --instance-id "$INSTANCE_ID" --query StandardErrorContent --output text | tail -30
+          echo "status $ST"
+          [ "$ST" = Success ]
+      - name: 사이트 응답 확인
+        run: curl -fsS -o /dev/null -w "https://legalstandard.co.kr %{http_code}\n" https://legalstandard.co.kr/
