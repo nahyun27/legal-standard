@@ -19,7 +19,7 @@ export default function FaqPage() {
           <FaqBrowser />
           <div className="faq-more">
             <b>찾는 답이 없나요?</b>
-            <p>대표전화 {FIRM.tel} · {FIRM.email} · {FIRM.hours}</p>
+            <p>{FIRM.tel && <>대표전화 {FIRM.tel} · </>}{FIRM.email} · {FIRM.hours}</p>
             <Link href="/notice" className="sub" style={{ textDecoration: 'underline' }}>서비스 운영 고지 보기</Link>
           </div>
         </div>

@@ -48,7 +48,7 @@ export default function Footer() {
         <div className="footer-legal">
           <p>
             운영 {FIRM.name} · {FIRM.representative} · {FIRM.address}<br />
-            사업자등록번호 {FIRM.bizNo} · 통신판매업 신고 {FIRM.mailOrderNo} · 대표전화 {FIRM.tel} · {FIRM.email}
+            사업자등록번호 {FIRM.bizNo}{FIRM.mailOrderNo && <> · 통신판매업 신고 {FIRM.mailOrderNo}</>}{FIRM.tel && <> · 대표전화 {FIRM.tel}</>} · {FIRM.email}
           </p>
           <p>{AUTOMATION_NOTICE} 사건의 결과는 사실관계와 증거에 따라 달라질 수 있습니다.</p>
           <p>© 2026 {FIRM.name}. All rights reserved.</p>

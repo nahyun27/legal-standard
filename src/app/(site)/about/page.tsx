@@ -105,7 +105,7 @@ export default function AboutPage() {
             <Link href="/services" className="btn btn-primary" style={{ marginTop: 20 }}>서비스·가격 보기 <ArrowRight size={16} /></Link>
           </div>
           <dl className="contact-card">
-            <div><dt><Phone size={16} /> 대표전화</dt><dd>{FIRM.tel}</dd></div>
+            {FIRM.tel && <div><dt><Phone size={16} /> 대표전화</dt><dd>{FIRM.tel}</dd></div>}
             <div><dt><Mail size={16} /> 이메일</dt><dd>{FIRM.email}</dd></div>
             <div><dt><Building2 size={16} /> 주사무소</dt><dd>{FIRM.address}</dd></div>
             <div><dt>운영 시간</dt><dd>{FIRM.hours}</dd></div>

@@ -117,7 +117,7 @@ export default function Page() {
         <ul>
           <li>{FIRM.privacyOfficer}</li>
           <li>이메일: {FIRM.email}</li>
-          <li>전화: {FIRM.tel}</li>
+          {FIRM.tel && <li>전화: {FIRM.tel}</li>}
         </ul>
 
         <h2>11. 권익침해 구제</h2>

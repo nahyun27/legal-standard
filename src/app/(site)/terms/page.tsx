@@ -118,7 +118,7 @@ export default function Page() {
 
         <h2>제14조 (분쟁 해결)</h2>
         <ol>
-          <li>서비스 이용과 관련한 문의·불만은 {FIRM.email} 또는 {FIRM.tel}으로 접수하며, 법인은 지체 없이 처리 결과를 알립니다.</li>
+          <li>서비스 이용과 관련한 문의·불만은 {FIRM.tel ? `${FIRM.email} 또는 ${FIRM.tel}` : FIRM.email}으로 접수하며, 법인은 지체 없이 처리 결과를 알립니다.</li>
           <li>이 약관과 서비스 이용에 관한 분쟁은 대한민국 법을 따르며, 관할 법원은 「민사소송법」에 따릅니다.</li>
         </ol>
 
