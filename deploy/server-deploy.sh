@@ -18,7 +18,9 @@ getp() { aws ssm get-parameter --name "/legalstandard/$1" --with-decryption --qu
 NEW=modulawyer.co.kr
 MYIP=$(curl -s --max-time 3 http://checkip.amazonaws.com || true)
 if [ ! -d /etc/letsencrypt/live/$NEW ]; then
-  if [ -n "$MYIP" ] && [ "$(getent ahostsv4 $NEW | awk 'NR==1{print $1}')" = "$MYIP" ] && [ "$(getent ahostsv4 www.$NEW | awk 'NR==1{print $1}')" = "$MYIP" ]; then
+  # 서버 자체 DNS 캐시는 "레코드 없음"을 한동안 기억하므로 공용 DNS 에 직접 묻는다
+  a4() { dig +short +time=3 A "$1" @1.1.1.1 2>/dev/null | tail -1 || true; }
+  if [ -n "$MYIP" ] && [ "$(a4 $NEW)" = "$MYIP" ] && [ "$(a4 www.$NEW)" = "$MYIP" ]; then
     certbot certonly --webroot -w /var/www/certbot -d $NEW -d www.$NEW --cert-name $NEW -n --agree-tos --keep-until-expiring \
       && echo "인증서 발급: $NEW" || echo "인증서 발급 실패: $NEW (이전 주소로 계속)"
   else
