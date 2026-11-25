@@ -1,4 +1,5 @@
 import { Check, Minus } from 'lucide-react';
+import { FIRM } from '@/lib/site';
 
 /**
  * 홈 "혼자 쓸 때와 무엇이 다른가요" — 서면을 혼자 준비할 때 빠지기 쉬운 부분과 우리가 하는 일을 나란히 둔다.
@@ -18,7 +19,7 @@ export default function AloneCompare() {
     <div className="alone-wrap">
       <table className="alone">
         <thead>
-          <tr><th scope="col"><span className="sr-only">항목</span></th><th scope="col">혼자 준비할 때</th><th scope="col">리걸스탠다드</th></tr>
+          <tr><th scope="col"><span className="sr-only">항목</span></th><th scope="col">혼자 준비할 때</th><th scope="col">{FIRM.brand}</th></tr>
         </thead>
         <tbody>
           {ROWS.map((r) => (

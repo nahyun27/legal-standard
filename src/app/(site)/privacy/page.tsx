@@ -2,7 +2,7 @@ import { PageHead } from '@/components/ui';
 import { pageMeta } from '@/lib/seo';
 import { FIRM } from '@/lib/site';
 
-export const metadata = pageMeta({ title: '개인정보처리방침', description: '리걸스탠다드 개인정보처리방침', path: '/privacy' });
+export const metadata = pageMeta({ title: '개인정보처리방침', description: '모두의 변호사 개인정보처리방침', path: '/privacy' });
 
 /**
  * 개인정보처리방침 초안(2026-11, 개인정보보호법 제30조 기재 사항 기준). 법인 검토 후 시행일을 정한다.

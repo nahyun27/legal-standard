@@ -11,7 +11,7 @@ const SERVICE_LINKS = [
 ];
 
 const INFO_LINKS = [
-  { href: '/about', label: '리걸스탠다드 소개' },
+  { href: '/about', label: '서비스 소개' },
   { href: '/notice', label: '서비스 운영 고지' },
   { href: '/terms', label: '이용약관' },
   { href: '/privacy', label: '개인정보처리방침', strong: true },

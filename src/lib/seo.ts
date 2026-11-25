@@ -8,7 +8,7 @@ export const ALLOW_INDEXING = process.env.NEXT_PUBLIC_ALLOW_INDEXING === 'true';
 
 export const NOINDEX = { index: false, follow: false } as const;
 
-export const SITE_NAME = '리걸스탠다드';
+export const SITE_NAME = '모두의 변호사';
 
 /** 공유 미리보기 이미지(src/app/opengraph-image.png). 하위 페이지의 openGraph 가 상위 값을 덮어쓰므로 pageMeta 에서도 넣는다. */
 export const OG_IMAGE = { url: '/opengraph-image.png', width: 1200, height: 630, alt: `${SITE_NAME} — 어려운 법률 서면, 가격부터 보고 맡기세요` };

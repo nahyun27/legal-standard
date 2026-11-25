@@ -6,8 +6,8 @@
  * TODO: 1577 대표번호를 받으면 tel 에 넣는다.
  */
 export const FIRM = {
-  brand: '리걸스탠다드',
-  brandEn: 'LEGAL STANDARD',
+  brand: '모두의 변호사',
+  brandEn: 'MODU LAWYER',
   name: '법무법인(유한) 에스제이파트너스',
   representative: '대표변호사 옥준원',
   adResponsibleLawyer: '광고책임변호사 윤승진',
@@ -18,7 +18,7 @@ export const FIRM = {
   bizNo: '397-86-02911',
   mailOrderNo: null as string | null,
   tel: null as string | null,
-  email: 'admin@legalstandard.co.kr',
+  email: 'admin@modulawyer.co.kr',
   hours: '평일 09:00–18:00 (온라인 접수는 상시)',
   // 개인정보 보호책임자(개인정보보호법 제31조)
   privacyOfficer: '개인정보 보호책임자 윤승진 (담당변호사)',

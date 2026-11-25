@@ -8,7 +8,7 @@ INSECURE_JWT_SECRETS = {"", "please-change-me", "change-me-in-production"}
 
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "Legal Standard API"
+    PROJECT_NAME: str = "Modu Lawyer API"
     API_V1_PREFIX: str = "/api/v1"
     ENV: Literal["local", "test", "production"] = "local"
 
@@ -58,7 +58,7 @@ class Settings(BaseSettings):
     # 결제 전 동의(청약철회 제한·수임 조건) 문안 버전. 문안을 바꾸면 올려서 누가 어느 버전에 동의했는지 남긴다.
     CONSENT_VERSION: str = "2026-10-draft"
     # 전자 수임약정 문안 버전(app/core/retainer.py). 문안을 바꾸면 올린다 — 서명 기록에 버전과 본문 해시가 남는다.
-    RETAINER_VERSION: str = "2026-11-draft"
+    RETAINER_VERSION: str = "2026-11-draft-2"
     FIRM_NAME: str = "법무법인(유한) 에스제이파트너스"
 
     # 관리자 2단계 인증(TOTP). 운영 환경에서는 이 값과 무관하게 항상 켜진다.
@@ -68,7 +68,7 @@ class Settings(BaseSettings):
     # 알림 — 비어 있는 채널은 건너뛰고 기록만 남긴다
     # 메일: SES_REGION 이 있으면 AWS SES(서버의 IAM 역할로 보냄 — 비밀번호 없음), 없고 SMTP_HOST 가 있으면 SMTP.
     SES_REGION: str | None = None
-    MAIL_FROM: str | None = None           # 예) 리걸스탠다드 <no-reply@legalstandard.co.kr>
+    MAIL_FROM: str | None = None           # 예) 모두의 변호사 <no-reply@modulawyer.co.kr>
     SMTP_HOST: str | None = None
     SMTP_PORT: int = 587
     SMTP_USER: str | None = None

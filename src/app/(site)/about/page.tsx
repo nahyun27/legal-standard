@@ -76,7 +76,7 @@ export default function AboutPage() {
               <div className="org-node"><b>{FIRM.brand}</b><small>정찰제 상품 · 온라인 접수</small></div>
               <div className="org-node"><b>법인 본체</b><small>복잡하거나 금액이 큰 사건</small></div>
             </div>
-            <p className="sub" style={{ marginTop: 16, textAlign: 'center' }}>리걸스탠다드로 접수했더라도 정해진 범위를 넘으면 법인 본체 변호사에게 바로 넘겨 드립니다.</p>
+            <p className="sub" style={{ marginTop: 16, textAlign: 'center' }}>모두의 변호사로 접수했더라도 정해진 범위를 넘으면 법인 본체 변호사에게 바로 넘겨 드립니다.</p>
           </Reveal>
         </div>
       </section>
@@ -84,7 +84,7 @@ export default function AboutPage() {
       <section className="band band-mist">
         <div className="container">
           <h2>검토 변호사</h2>
-          <p className="lead" style={{ marginTop: 0 }}>리걸스탠다드의 서면은 아래 변호사들이 검토하고 서명합니다.</p>
+          <p className="lead" style={{ marginTop: 0 }}>모두의 변호사에서 받는 서면은 아래 변호사들이 검토하고 서명합니다.</p>
           <div className="grid grid-3" style={{ marginTop: 28 }}>
             {LAWYERS.map((n, i) => (
               <Reveal key={n} delay={i * 90} className="lawyer-card">

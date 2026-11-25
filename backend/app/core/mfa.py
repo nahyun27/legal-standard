@@ -29,7 +29,7 @@ from app.models.credentials import MfaEmailCode
 from app.models.user import User
 
 MFA_COOKIE = "ls_mfa"
-ISSUER = "리걸스탠다드 관리자"
+ISSUER = "모두의 변호사 관리자"
 _failures: dict[int, list[float]] = defaultdict(list)
 
 
@@ -115,7 +115,7 @@ def send_email_code(db: Session, user: User) -> str:
     db.commit()
     send_mail(
         user.email,
-        f"[리걸스탠다드] 관리자 인증 코드 {code}",
+        f"[모두의 변호사] 관리자 인증 코드 {code}",
         f"관리자 화면 2단계 인증 코드는 {code} 입니다.\n{EMAIL_CODE_MINUTES}분 안에 입력해 주세요.\n\n"
         "직접 요청하지 않았다면 누군가 이 계정의 비밀번호를 알고 있을 수 있습니다. 비밀번호를 바로 바꿔 주세요.",
     )

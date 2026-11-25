@@ -1,12 +1,13 @@
 import Link from 'next/link';
 import { Compass } from 'lucide-react';
+import { FIRM } from '@/lib/site';
 
 // 루트 not-found 는 (site) 레이아웃 밖이라 헤더·푸터가 없다 — 홈으로 갈 길만 분명히 준다.
 export default function NotFound() {
   return (
     <main className="container section" style={{ textAlign: 'center', paddingTop: 120 }}>
       <Link href="/" className="logo" style={{ justifyContent: 'center', marginBottom: 32 }}>
-        <span className="dot" aria-hidden="true" />리걸스탠다드
+        <span className="dot" aria-hidden="true" />{FIRM.brand}
       </Link>
       <div className="status-screen"><span className="status-icon warn"><Compass size={30} /></span></div>
       <h1>페이지를 찾을 수 없습니다</h1>

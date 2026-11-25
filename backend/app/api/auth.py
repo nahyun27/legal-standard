@@ -328,7 +328,7 @@ def password_forgot(payload: PasswordForgotRequest, request: Request, db: Sessio
     base = settings.FRONTEND_BASE_URL or settings.BACKEND_BASE_URL
     send_mail(
         email,
-        "[리걸스탠다드] 비밀번호 재설정 안내",
+        "[모두의 변호사] 비밀번호 재설정 안내",
         "아래 링크에서 새 비밀번호를 정해 주세요. 링크는 30분 동안 한 번만 쓸 수 있습니다.\n\n"
         f"{base}/reset-password?token={token}\n\n"
         "직접 요청하지 않으셨다면 이 메일을 무시하셔도 됩니다. 비밀번호는 바뀌지 않습니다.",

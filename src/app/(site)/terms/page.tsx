@@ -4,7 +4,7 @@ import { AUTOMATION_NOTICE } from '@/data/faq';
 import { pageMeta } from '@/lib/seo';
 import { FIRM } from '@/lib/site';
 
-export const metadata = pageMeta({ title: '이용약관', description: '리걸스탠다드 서비스 이용약관', path: '/terms' });
+export const metadata = pageMeta({ title: '이용약관', description: '모두의 변호사 서비스 이용약관', path: '/terms' });
 
 /**
  * 이용약관 초안(2026-11). 법인 검토 후 시행일을 정하고 "초안" 표시를 뗀다.

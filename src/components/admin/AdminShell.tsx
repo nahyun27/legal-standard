@@ -7,6 +7,7 @@ import { BarChart3, ClipboardList, ExternalLink, LayoutDashboard, LogOut, Receip
 import { useAuth } from '@/components/AuthProvider';
 import { ReasonProvider } from '@/components/admin/ReasonDialog';
 import { api } from '@/lib/api';
+import { FIRM } from '@/lib/site';
 
 export interface Staff {
   id: number;
@@ -76,7 +77,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       <ReasonProvider>
         <div className="admin">
           <aside className="admin-side">
-            <Link href="/admin" className="admin-brand"><span className="dot" aria-hidden="true" />리걸스탠다드<small>관리자</small></Link>
+            <Link href="/admin" className="admin-brand"><span className="dot" aria-hidden="true" />{FIRM.brand}<small>관리자</small></Link>
             <nav>
               {NAV.filter((n) => !n.adminOnly || staff.is_admin).map(({ href, label, icon: Icon, exact }) => {
                 const active = exact ? pathname === href : pathname.startsWith(href);
