@@ -12,6 +12,22 @@ ENVF=$APP/backend/.env
 
 getp() { aws ssm get-parameter --name "/legalstandard/$1" --with-decryption --query Parameter.Value --output text 2>/dev/null || true; }
 
+# ---- 0. 대표 주소(2026-11 legalstandard.co.kr → modulawyer.co.kr) ---------------
+# 새 도메인 인증서가 없으면, DNS 가 이 서버를 가리킬 때 발급한다(80번 기본 서버가 /.well-known 을 /var/www/certbot 에서 준다).
+# 인증서가 있어야 새 주소로 전환한다 — 그 전에는 이전 주소 그대로 동작한다.
+NEW=modulawyer.co.kr
+MYIP=$(curl -s --max-time 3 http://checkip.amazonaws.com || true)
+if [ ! -d /etc/letsencrypt/live/$NEW ]; then
+  if [ -n "$MYIP" ] && [ "$(getent ahostsv4 $NEW | awk 'NR==1{print $1}')" = "$MYIP" ] && [ "$(getent ahostsv4 www.$NEW | awk 'NR==1{print $1}')" = "$MYIP" ]; then
+    certbot certonly --webroot -w /var/www/certbot -d $NEW -d www.$NEW --cert-name $NEW -n --agree-tos --keep-until-expiring \
+      && echo "인증서 발급: $NEW" || echo "인증서 발급 실패: $NEW (이전 주소로 계속)"
+  else
+    echo "인증서 대기: $NEW 의 DNS 가 아직 이 서버($MYIP)를 가리키지 않음"
+  fi
+fi
+if [ -d /etc/letsencrypt/live/$NEW ]; then SITE=https://$NEW; else SITE=https://legalstandard.co.kr; fi
+echo "대표 주소: $SITE"
+
 # ---- 1. backend/.env ---------------------------------------------------------
 TOSS_SK=$(getp TOSS_SECRET_KEY)
 TOSS_CK=$(getp TOSS_CLIENT_KEY)
@@ -31,9 +47,9 @@ ENV=production
 DATABASE_URL=postgresql+psycopg2://legal:${DBPW}@127.0.0.1:5432/legal_standard
 JWT_SECRET_KEY=${JWT}
 COOKIE_SECURE=true
-CORS_ORIGINS=["https://legalstandard.co.kr"]
-FRONTEND_BASE_URL=https://legalstandard.co.kr
-BACKEND_BASE_URL=https://legalstandard.co.kr
+CORS_ORIGINS=["${SITE}"]
+FRONTEND_BASE_URL=${SITE}
+BACKEND_BASE_URL=${SITE}
 DEV_LOGIN_ENABLED=false
 TOSS_SECRET_KEY=${TOSS_SK}
 TOSS_CLIENT_KEY=${TOSS_CK}
@@ -43,7 +59,7 @@ EOF
   # 메일(비밀번호 재설정·관리자 이메일 인증·사건 알림) — AWS SES. 서버 IAM 역할(legalstandard-ec2 의 ses-send)로 보내므로 비밀번호가 없다.
   cat <<EOF
 SES_REGION=ap-northeast-2
-MAIL_FROM=리걸스탠다드 <no-reply@legalstandard.co.kr>
+MAIL_FROM=모두의 변호사 <no-reply@legalstandard.co.kr>
 EOF
   if [ -n "$KAKAO_ID" ] && [ -n "$KAKAO_SECRET" ]; then
     printf 'KAKAO_CLIENT_ID=%s\nKAKAO_CLIENT_SECRET=%s\n' "$KAKAO_ID" "$KAKAO_SECRET"
@@ -52,6 +68,20 @@ EOF
 chown ubuntu:ubuntu "$ENVF.tmp" && mv "$ENVF.tmp" "$ENVF" && chmod 600 "$ENVF"
 echo ".env: toss ${TOSS_SK%%_sk_*} · mail ses · kakao $([ -n "$KAKAO_ID" ] && echo 있음 || echo 없음)"
 unset TOSS_SK TOSS_CK DBPW JWT KAKAO_ID KAKAO_SECRET
+
+# 프런트 공개 설정 — NEXT_PUBLIC_* 는 빌드에 고정되므로 빌드 전에 맞춘다(나머지 줄은 건드리지 않는다)
+FENV=$APP/.env.production
+grep -q '^NEXT_PUBLIC_SITE_URL=' "$FENV" && sed -i "s#^NEXT_PUBLIC_SITE_URL=.*#NEXT_PUBLIC_SITE_URL=${SITE}#" "$FENV" || echo "NEXT_PUBLIC_SITE_URL=${SITE}" >> "$FENV"
+chown ubuntu:ubuntu "$FENV"
+
+# Nginx — 저장소의 설정을 반영. 검사(nginx -t)에 실패하면(예: 인증서가 아직 없음) 이전 설정으로 되돌리고 계속한다
+NGX=/etc/nginx/sites-available/legalstandard.conf
+if [ "$SITE" = "https://$NEW" ] && ! cmp -s "$APP/deploy/nginx/legalstandard.conf" "$NGX"; then
+  cp "$NGX" "$NGX.bak"
+  cp "$APP/deploy/nginx/legalstandard.conf" "$NGX"
+  if nginx -t 2>/dev/null; then systemctl reload nginx; echo "nginx: 새 설정 반영"
+  else cp "$NGX.bak" "$NGX"; echo "nginx: 새 설정 검사 실패 — 이전 설정 유지"; fi
+fi
 
 # ---- 2. 빌드 ------------------------------------------------------------------
 sudo -u ubuntu bash -lc '
