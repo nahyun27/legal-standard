@@ -95,4 +95,4 @@ npm ci && npm run build && npm run check:copy && sudo systemctl restart legalsta
   읽는 이름: `TOSS_SECRET_KEY`, `TOSS_CLIENT_KEY`(필수), `KAKAO_CLIENT_ID`, `KAKAO_CLIENT_SECRET`(선택).
 - 비밀값만 바꾸고 코드 변경 없이 다시 배포하려면 GitHub → Actions → CI → Run workflow 가 아니라, 빈 커밋을 푸시한다
   (`git commit --allow-empty -m "재배포" && git push`).
-- 메일은 AWS SES(도메인 legalstandard.co.kr, DKIM)로 보낸다. 서버 역할 `legalstandard-ec2` 의 인라인 정책 `ses-send` 가 @legalstandard.co.kr 발신만 허용한다 — 메일 비밀번호는 없다.
+- 메일은 AWS SES(도메인 modulawyer.co.kr·legalstandard.co.kr, DKIM)로 보낸다. 발신 주소 no-reply@modulawyer.co.kr. 서버 역할 `legalstandard-ec2` 의 인라인 정책 `ses-send` 가 두 도메인 발신만 허용한다 — 메일 비밀번호는 없다.

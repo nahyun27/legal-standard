@@ -61,7 +61,7 @@ EOF
   # 메일(비밀번호 재설정·관리자 이메일 인증·사건 알림) — AWS SES. 서버 IAM 역할(legalstandard-ec2 의 ses-send)로 보내므로 비밀번호가 없다.
   cat <<EOF
 SES_REGION=ap-northeast-2
-MAIL_FROM=모두의 변호사 <no-reply@legalstandard.co.kr>
+MAIL_FROM=모두의 변호사 <no-reply@modulawyer.co.kr>
 EOF
   if [ -n "$KAKAO_ID" ] && [ -n "$KAKAO_SECRET" ]; then
     printf 'KAKAO_CLIENT_ID=%s\nKAKAO_CLIENT_SECRET=%s\n' "$KAKAO_ID" "$KAKAO_SECRET"
