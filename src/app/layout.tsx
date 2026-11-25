@@ -30,7 +30,7 @@ export const metadata: Metadata = {
   description: DESCRIPTION,
   applicationName: SITE_NAME,
   robots: ALLOW_INDEXING ? { index: true, follow: true } : NOINDEX,
-  openGraph: { title: TITLE, description: DESCRIPTION, siteName: SITE_NAME, locale: 'ko_KR', type: 'website' },
+  openGraph: { title: TITLE, description: DESCRIPTION, url: '/', siteName: SITE_NAME, locale: 'ko_KR', type: 'website' },
 };
 
 export const viewport: Viewport = { themeColor: '#14213d' };
