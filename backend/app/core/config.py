@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     PENDING_EXPIRE_DAYS: int = 7          # 이 기간이 지난 결제 대기 사건은 자동 취소
     PUBLIC_METRICS_MIN_CASES: int = 30    # 실측 지표는 이 건수 이상 쌓였을 때만 공개(소수 표본으로 과장되지 않게)
     # 결제 전 동의(청약철회 제한·수임 조건) 문안 버전. 문안을 바꾸면 올려서 누가 어느 버전에 동의했는지 남긴다.
-    CONSENT_VERSION: str = "2026-10-draft"
+    CONSENT_VERSION: str = "2026-11-draft"
     # 전자 수임약정 문안 버전(app/core/retainer.py). 문안을 바꾸면 올린다 — 서명 기록에 버전과 본문 해시가 남는다.
     RETAINER_VERSION: str = "2026-11-draft-2"
     FIRM_NAME: str = "법무법인(유한) 에스제이파트너스"

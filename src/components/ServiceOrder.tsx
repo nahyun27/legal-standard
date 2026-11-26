@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { AddonLines, PriceRows, TrustSeal } from '@/components/ui';
 import type { Service } from '@/data/types';
-import { optionOf, optionTitle, orderOptions } from '@/data/services';
+import { optionOf, optionTitle, orderOptions, waysOf } from '@/data/services';
 import { priceText } from '@/lib/format';
 
 /**
@@ -23,6 +23,7 @@ export default function ServiceOrder({ service: s }: { service: Service }) {
 
   const open = s.stage === 'pilot';
   const isQuote = s.price?.kind === 'quote';
+  const isTbd = s.price?.kind === 'tbd';
   const chosen = optionOf(s, key);
   const href = `/intake/${s.slug}${chosen ? `?track=${chosen.key}` : ''}`;
   const cta = isQuote ? '상담 요청하기' : '온라인 문진 시작';
@@ -47,10 +48,10 @@ export default function ServiceOrder({ service: s }: { service: Service }) {
           )}
           <AddonLines service={s} />
           <ul>
-            <li>VAT 별도{s.unitCount && ` · ${s.unitCount.label} 1개 기준(개수만큼 곱함)`}</li>
+            {isTbd ? <li>가격은 확정되면 공개합니다</li> : <li>VAT 별도{s.unitCount && ` · ${s.unitCount.label} 1개 기준(개수만큼 곱함)`}</li>}
             {s.turnaround && <li>{s.turnaround}</li>}
-            {s.costs && <li>별도 실비: {s.costs.join(', ')}{s.tracks && s.tracks.length > 1 && ' (서면만 받기는 제출할 때 직접 납부)'}</li>}
-            {!isQuote && <li>수임하지 않으면 전액 환불</li>}
+            {s.costs && <li>별도 실비: {s.costs.join(', ')}{waysOf(s).includes('self') && waysOf(s).length > 1 && ' (서면만 받기는 제출할 때 직접 납부)'}</li>}
+            {!isQuote && !isTbd && <li>수임하지 않으면 전액 환불</li>}
           </ul>
         </div>
         {open ? (

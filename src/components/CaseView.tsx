@@ -10,7 +10,7 @@ import { PageHero } from '@/components/ui';
 import { getService, serviceTitle } from '@/data/services';
 import { ApiError, api, fileUrl, fmtDate, fmtSize, upload, type CaseDetail, type CaseStatus, type Charge, type RetainerDoc } from '@/lib/api';
 import { priceText, won } from '@/lib/format';
-import { startPayment, type Consents, type PayMethod } from '@/lib/payment';
+import { NO_CONSENTS, consentsOk, startPayment, type Consents, type PayMethod } from '@/lib/payment';
 
 // 고객에게 보여주는 진행 단계. 내부 상태(검수 대기·발송 준비 등)는 고객 눈높이의 5단계로 묶는다.
 const STAGES = ['접수·결제', '수임 검토', '서면 준비', '변호사 검토·서명', '발송·제출'];
@@ -25,7 +25,7 @@ export default function CaseView({ id, justPaid }: { id: number; justPaid: boole
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
-  const [consents, setConsents] = useState<Consents>({ agree_engagement: false, agree_withdrawal: false });
+  const [consents, setConsents] = useState<Consents>(NO_CONSENTS);
   const [method, setMethod] = useState<PayMethod>('card');
 
   const load = useCallback(() => {
@@ -199,7 +199,7 @@ export default function CaseView({ id, justPaid }: { id: number; justPaid: boole
             {c.status === 'pending_payment' && c.total > 0 && (
               <div style={{ display: 'grid', gap: 8, marginTop: 14 }}>
                 <PaymentConsent value={consents} onChange={setConsents} method={method} onMethod={setMethod} />
-                <button className="btn btn-primary" onClick={() => pay()} disabled={!!busy || !consents.agree_engagement || !consents.agree_withdrawal}>{won(c.total)} 결제하기</button>
+                <button className="btn btn-primary" onClick={() => pay()} disabled={!!busy || !consentsOk(consents)}>{won(c.total)} 결제하기</button>
                 <button className="link-btn" onClick={cancel}>접수 취소</button>
               </div>
             )}
@@ -316,7 +316,7 @@ function ChargesCard({ charges, busy, consents, onConsents, method, onMethod, on
         <div style={{ display: 'grid', gap: 8, marginTop: 14 }}>
           <PaymentConsent value={consents} onChange={onConsents} method={method} onMethod={onMethod} />
           {pending.map((x) => (
-            <button key={x.id} className="btn btn-primary" disabled={busy || !consents.agree_engagement || !consents.agree_withdrawal} onClick={() => onPay(x.id)}>
+            <button key={x.id} className="btn btn-primary" disabled={busy || !consentsOk(consents)} onClick={() => onPay(x.id)}>
               {x.label} {won(x.total)} 결제하기
             </button>
           ))}

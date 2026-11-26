@@ -14,8 +14,14 @@ export const PAY_METHODS: { value: PayMethod; label: string }[] = [
 
 export interface Consents {
   agree_engagement: boolean;
+  agree_costs: boolean;
   agree_withdrawal: boolean;
 }
+
+export const NO_CONSENTS: Consents = { agree_engagement: false, agree_costs: false, agree_withdrawal: false };
+
+/** 결제 전 필수 동의를 모두 했는지(항목이 늘어도 여기만 보면 된다) */
+export const consentsOk = (c: Consents) => Object.values(c).every(Boolean);
 
 /**
  * 결제 시작. 금액은 서버가 사건에 고정한 값만 쓴다.

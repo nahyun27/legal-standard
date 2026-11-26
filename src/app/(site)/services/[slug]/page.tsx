@@ -4,9 +4,9 @@ import { ArrowRight, Check, ChevronDown, ClipboardList, FileSignature, Minus, Se
 import { glossed } from '@/components/Glossed';
 import Reveal from '@/components/Reveal';
 import ServiceOrder from '@/components/ServiceOrder';
-import { AddonLines, AreaBadges, DocStamp, PageHero, PriceRows } from '@/components/ui';
+import { AddonLines, AreaBadges, DocStamp, PageHero, PartList, PriceRows } from '@/components/ui';
 import { FAQ } from '@/data/faq';
-import { PREP, SERVICES, TRACK_INFO, getService, serviceTitle } from '@/data/services';
+import { PREP, SERVICES, TRACK_INFO, getService, serviceTitle, waysOf } from '@/data/services';
 import { priceText } from '@/lib/format';
 import { pageMeta } from '@/lib/seo';
 
@@ -25,6 +25,7 @@ export default async function ServiceDetail({ params }: PageProps<'/services/[sl
   if (!s) notFound();
   const nexts = (s.next ?? []).map((n) => ({ ...n, service: getService(n.slug)! }));
   const twoWays = (s.tracks?.length ?? 0) > 1;
+  const isTbd = s.price?.kind === 'tbd';
   const steps = [
     { icon: ClipboardList, title: '온라인 문진·자료 제출', body: '질문에 답하면서 있었던 일을 적고 증거를 올립니다. 15분쯤 걸립니다.' },
     { icon: UserCheck, title: '변호사 수임 검토', body: '담당 변호사가 24시간 안에 이해충돌이 없는지, 정해진 업무범위로 처리할 수 있는지 확인합니다.' },
@@ -67,12 +68,14 @@ export default async function ServiceDetail({ params }: PageProps<'/services/[sl
             </Reveal>
           )}
 
-          {(s.bands || s.ladder || s.addons || s.screening) && (
+          {(s.bands || s.ladder || s.addons || s.screening || isTbd) && (
             <Reveal as="section" className="detail-block">
-              <h2 className="block-title">{s.bands ? '장수 구간별 가격' : s.ladder ? '단계별 가격' : '추가 요금'}</h2>
-              {(s.bands || s.ladder) && <PriceRows service={s} />}
+              <h2 className="block-title">{s.bands ? '장수 구간별 가격' : s.ladder ? '단계별 가격' : isTbd ? '구성과 가격' : '추가 요금'}</h2>
+              {isTbd && <p className="sub" style={{ marginTop: -4, marginBottom: 14 }}>가격은 확정되면 이 페이지에 공개합니다. 지금은 접수를 받지 않습니다.</p>}
+              {isTbd && <PartList service={s} />}
+              {(s.bands || s.ladder || isTbd) && <PriceRows service={s} />}
               <AddonLines service={s} />
-              {s.screening && <p className="screen"><b>정찰가로 맡는 조건</b> {glossed(s.screening, seen)}</p>}
+              {s.screening && <p className="screen"><b>{s.screeningTitle ?? '정찰가로 맡는 조건'}</b> {glossed(s.screening, seen)}</p>}
               {s.chips && s.bands && <p className="note" style={{ marginTop: 12 }}>{s.chips.join(' · ')}</p>}
             </Reveal>
           )}
@@ -96,7 +99,7 @@ export default async function ServiceDetail({ params }: PageProps<'/services/[sl
           )}
           {s.costs && (
             <p className="note" style={{ marginTop: -8, marginBottom: 24 }}>
-              별도 실비: {glossed(s.costs.join(', '), seen)}. {twoWays ? '서면만 받기는 제출할 때 직접 내시고, 변호사에게 맡기기는 결제할 때 함께 받습니다. ' : ''}정확한 금액은 결제 전 총액 화면에서 항목별로 보여 드립니다.
+              별도 실비: {glossed(s.costs.join(', '), seen)}. {waysOf(s).length > 1 ? '서면만 받기는 제출할 때 직접 내시고, 변호사에게 맡기기는 결제할 때 함께 받습니다. ' : ''}정확한 금액은 결제 전 총액 화면에서 항목별로 보여 드립니다.
             </p>
           )}
 

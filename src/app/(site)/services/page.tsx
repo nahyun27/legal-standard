@@ -10,7 +10,7 @@ import { pageMeta } from '@/lib/seo';
 
 export const metadata = pageMeta({
   title: '서비스·가격',
-  description: '민사·형사·자문 모든 상품의 서면만 받기·변호사에게 맡기기 두 가지 가격과 업무범위.',
+  description: '민사·형사·가사·행정·자문 모든 상품의 서면만 받기·변호사에게 맡기기 두 가지 가격과 업무범위.',
   path: '/services',
 });
 
@@ -26,6 +26,7 @@ function cell(s: Service, kind: TrackKind) {
     const t = trackOf(s, kind);
     return t ? `${won(t.amount)}${t.per ? `/${t.per}` : ''}` : '—';
   }
+  if (s.price?.kind === 'tbd') return s.offered?.includes(kind) ? '가격 확정 전' : '—';
   return kind === 'self' ? '—' : priceText(s);
 }
 
@@ -102,7 +103,7 @@ export default function ServicesPage() {
                 </div>
               </div>
             ))}
-            <p className="note">계약서 검토는 장수 구간별, 피의사건 정찰 변호는 단계별 가격입니다. 자세한 구간은 상품 페이지에서 확인하세요. 개별 상담이 필요한 사건은 견적을 따로 안내합니다.</p>
+            <p className="note">계약서 검토는 장수 구간별, 피의사건 정찰 변호는 단계별 가격입니다. 「가격 확정 전」 상품은 가격이 정해지면 공개하고 접수를 엽니다. 자세한 구간은 상품 페이지에서 확인하세요. 개별 상담이 필요한 사건은 견적을 따로 안내합니다.</p>
           </details>
         </div>
       </section>

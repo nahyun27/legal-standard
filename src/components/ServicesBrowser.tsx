@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 import Reveal from '@/components/Reveal';
 import { ServiceCard } from '@/components/ui';
-import { AREA_LABEL, AREA_NOTE, SERVICES, TRACK_INFO } from '@/data/services';
+import { AREA_LABEL, AREA_NOTE, GROUP_NOTE, SERVICES, TRACK_INFO } from '@/data/services';
 import type { Area, TrackKind } from '@/data/types';
 
 type ListedArea = Exclude<Area, 'consult'>;
@@ -19,9 +19,10 @@ export function focusTrack(kind: TrackKind) {
 }
 
 /**
- * 서비스와 가격 — 영역 탭(민사·형사·자문) + 방식 강조 스위치 + 진열 카드.
+ * 서비스와 가격 — 영역 탭(민사·형사·가사·행정·자문) + 방식 강조 스위치 + 진열 카드.
+ * 영역 안에 묶음(group)이 있으면(가사: 상속·가족·이혼) 묶음 제목 아래 모아 보여 준다.
  * 두 방식의 가격은 항상 함께 보이고, 스위치는 고른 방식 쪽만 진하게 표시한다.
- * 주소에 ?track=self|atty, ?area=civil|criminal|advisory 가 있으면 그 상태로 연다.
+ * 주소에 ?track=self|atty, ?area=civil|criminal|family|admin|advisory 가 있으면 그 상태로 연다.
  */
 export default function ServicesBrowser() {
   const [area, setArea] = useState<ListedArea>('civil');
@@ -40,6 +41,8 @@ export default function ServicesBrowser() {
 
   const items = SERVICES.filter((s) => s.area === area)
     .sort((a, b) => Number(a.stage !== 'pilot') - Number(b.stage !== 'pilot'));
+  // 묶음이 있는 영역은 데이터 순서대로 묶음을 나눈다(묶음이 없으면 하나로)
+  const groups = [...new Set(items.map((s) => s.group ?? ''))].map((g) => ({ name: g, list: items.filter((s) => (s.group ?? '') === g) }));
 
   return (
     <>
@@ -62,13 +65,18 @@ export default function ServicesBrowser() {
       </div>
       <p className="area-note">{AREA_NOTE[area]}</p>
       {/* key 로 탭이 바뀔 때마다 카드를 다시 그려 등장 애니메이션을 준다 */}
-      <div key={area} className="grid grid-3 shelf shelf-anim">
-        {items.map((s, i) => (
-          <Reveal key={s.slug} delay={Math.min(i, 5) * 60} className={s.stage === 'pilot' ? '' : 'is-upcoming'}>
-            <ServiceCard service={s} focus={focus} />
-          </Reveal>
-        ))}
-      </div>
+      {groups.map((g) => (
+        <div key={`${area}-${g.name}`}>
+          {g.name && <h3 className="group-h">{g.name} <small>{g.list.length}종{GROUP_NOTE[g.name] ? ` · ${GROUP_NOTE[g.name]}` : ''}</small></h3>}
+          <div className="grid grid-3 shelf shelf-anim">
+            {g.list.map((s, i) => (
+              <Reveal key={s.slug} delay={Math.min(i, 5) * 60} className={s.stage === 'pilot' ? '' : 'is-upcoming'}>
+                <ServiceCard service={s} focus={focus} />
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      ))}
       <Link href="/services/advanced" className="consult-link">
         <span><b>정해진 상품으로 맡기기 어려운 사건인가요?</b> 사건이 복잡하거나 금액이 크면 법무법인 변호사가 개별 상담하고 견적을 안내합니다.</span>
         <ArrowRight size={18} />

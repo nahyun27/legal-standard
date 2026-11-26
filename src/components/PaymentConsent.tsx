@@ -26,7 +26,7 @@ export default function PaymentConsent({ value, onChange, method, onMethod }: {
       </div>
       <div className="consents" style={{ margin: '12px 0 0' }}>
         <label className="consent consent-all">
-          <input type="checkbox" checked={all} onChange={(e) => onChange({ agree_engagement: e.target.checked, agree_withdrawal: e.target.checked })} />
+          <input type="checkbox" checked={all} onChange={(e) => onChange(Object.fromEntries(keys.map((k) => [k, e.target.checked])) as unknown as Consents)} />
           <span>결제 전 안내에 모두 동의합니다</span>
         </label>
         {keys.map((k) => (

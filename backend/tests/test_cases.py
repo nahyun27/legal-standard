@@ -15,7 +15,7 @@ def new_case(client, **over):
     return r.json()
 
 
-CONSENT = {"agree_engagement": True, "agree_withdrawal": True}
+CONSENT = {"agree_engagement": True, "agree_withdrawal": True, "agree_costs": True}
 
 
 def pay(client, case_id, amount=None):

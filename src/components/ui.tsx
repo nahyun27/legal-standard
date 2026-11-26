@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Check, ChevronRight, Minus, ShieldCheck } from 'lucide-react';
 import type { Service, TrackKind } from '@/data/types';
-import { AREA_LABEL, STAGE_LABEL } from '@/data/services';
+import { AREA_LABEL, STAGE_LABEL, TRACK_INFO } from '@/data/services';
 import { priceText } from '@/lib/format';
 
 export interface Crumb { label: string; href?: string }
@@ -132,15 +132,40 @@ export function PriceRows({ service, focus }: { service: Service; focus?: TrackK
       </div>
     );
   }
+  if (service.price?.kind === 'tbd' && service.offered?.length) {
+    // 가격 확정 전 — 어떤 방식으로 제공될지만 보여 준다
+    return (
+      <div className="prows">
+        {service.offered.map((k) => (
+          <div key={k} className={`prow prow-${k}${focus ? (focus === k ? ' is-focus' : ' is-dim') : ''}`}>
+            <span className="who">{TRACK_INFO[k].title}{k === 'atty' && <span className="retainer">수임약정</span>}</span>
+            <span className="pr pr-tbd">가격 확정 전</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
   return <span className="price price-sm">{priceText(service)}</span>;
+}
+
+/** 한 상품 안의 품목·단계 목록(상속포기/한정승인, 이의신청/행정심판 등) */
+export function PartList({ service }: { service: Service }) {
+  if (!service.parts?.length) return null;
+  return (
+    <div className="parts">
+      {service.partsTitle && <span className="parts-title">{service.partsTitle}</span>}
+      <ul>{service.parts.map((p) => <li key={p.label}><b>{p.label}</b>{p.note && <i>{p.note}</i>}</li>)}</ul>
+    </div>
+  );
 }
 
 /** 기일 출석처럼 횟수만큼 더해지는 요금 한 줄 */
 export function AddonLines({ service }: { service: Service }) {
-  if (!service.addons?.length) return null;
+  if (!service.addons?.length && !service.attendance) return null;
   return (
     <>
-      {service.addons.map((a) => (
+      {service.attendance && <p className="addon">+ <b>{service.attendance.split(' · ')[0]}</b>{service.attendance.includes(' · ') && ` · ${service.attendance.split(' · ').slice(1).join(' · ')}`}</p>}
+      {service.addons?.map((a) => (
         <p key={a.label} className="addon">
           + <b>{a.label}</b> ({a.per}) · {a.options.map((o) => `${o.label} ${num(o.amount)}원`).join(' / ')}
         </p>
@@ -165,6 +190,7 @@ export function ServiceCard({ service, focus }: { service: Service; focus?: Trac
       {service.stage !== 'pilot' && <span className="upcoming-label">{STAGE_LABEL[service.stage]}</span>}
       <h3>{service.name}{service.unit && <small className="unit">{service.unit}</small>}</h3>
       <p className="use">{service.summary}</p>
+      <PartList service={service} />
       <PriceRows service={service} focus={focus} />
       <AddonLines service={service} />
       {service.chips && <div className="card-chips">{service.chips.map((c) => <span key={c}>{c}</span>)}</div>}

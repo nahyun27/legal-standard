@@ -13,7 +13,7 @@ import { bandFor, optionOf, optionTitle, orderOptions, serviceTitle } from '@/da
 import { api, fmtSize, upload, type CaseDetail, type Quote } from '@/lib/api';
 import { priceText, won } from '@/lib/format';
 import { countPdfPages } from '@/lib/pdfPages';
-import { startPayment, type Consents, type PayMethod } from '@/lib/payment';
+import { NO_CONSENTS, consentsOk, startPayment, type Consents, type PayMethod } from '@/lib/payment';
 
 /**
  * 구조화 온라인 문진 → 사건 접수 → 증거 업로드 → 결제 (사업기획서 V "판매": 접수·결제·문진·수령 온라인 일원화).
@@ -64,7 +64,7 @@ export default function IntakeForm({ service, parentId, initialTrack }: { servic
   const screenFail = service.screenQuestions?.find((q) => screenAnswers[q.key] && screenAnswers[q.key] !== q.required);
   const screenOk = !service.screenQuestions || service.screenQuestions.every((q) => screenAnswers[q.key] === q.required);
   const [pagesNote, setPagesNote] = useState<string | null>(null);
-  const [consents, setConsents] = useState<Consents>({ agree_engagement: false, agree_withdrawal: false });
+  const [consents, setConsents] = useState<Consents>(NO_CONSENTS);
   const [method, setMethod] = useState<PayMethod>('card');
   const [parentNo, setParentNo] = useState<string | null>(null);
 
@@ -198,7 +198,7 @@ export default function IntakeForm({ service, parentId, initialTrack }: { servic
     step === 0 ? d.clientName.trim().length >= 2 && digits(d.phone).length >= 10 && (isQuote || !!track) && screenOk
     : step === 1 ? (!service.claimRequired || !!digits(d.amount)) && d.facts.trim().length >= 10 && questions.every((q) => !q.required || !!d.answers[q.key]?.trim())
     : true;
-  const consentOk = isQuote || (consents.agree_engagement && consents.agree_withdrawal);
+  const consentOk = isQuote || consentsOk(consents);
   const setAnswer = (k: string, v: string) => setD({ ...d, answers: { ...d.answers, [k]: v } });
 
   return (
@@ -366,6 +366,16 @@ export default function IntakeForm({ service, parentId, initialTrack }: { servic
               </table>
             </div>
           )
+        )}
+        {step === 3 && !isQuote && quote && service.costs && (
+          // 실비 별도 안내(시안 v6 결제 전 화면) — 방식에 따라 내는 방법이 다르다
+          <p className="notice" style={{ marginBottom: 16 }}>
+            {trackKey === 'atty' && quote.costs.length
+              ? '위 실비는 예상액으로 함께 결제합니다. 진행 중 실비가 더 필요하면 미리 안내해 드립니다.'
+              : trackKey === 'atty'
+                ? `실비(${service.costs.join(', ')})는 결제 금액에 포함되어 있지 않습니다. 필요한 금액은 진행하면서 미리 안내해 드립니다.`
+                : `실비는 결제 금액에 포함되어 있지 않습니다. 이 상품에서 주로 드는 실비(${service.costs.join(', ')})는 서면을 제출할 때 직접 납부합니다.`}
+          </p>
         )}
         {step === 3 && !isQuote && user?.is_onboarded && (
           <PaymentConsent value={consents} onChange={setConsents} method={method} onMethod={setMethod} />

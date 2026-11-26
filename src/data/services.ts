@@ -1,7 +1,8 @@
 import type { Area, PrepKey, Service, Track, TrackKind } from './types';
 
 /**
- * 상품·정찰가(VAT 별도). 구성과 가격은 의뢰인 시안 v5 를 따른다.
+ * 상품·정찰가(VAT 별도). 구성과 가격은 의뢰인 시안 v6 을 따른다 — v6 신규 상품(가사·행정·가압류·증거보전)은
+ * 가격 확정 전이라 price: tbd + offered(제공 방식)로만 두고 접수는 열지 않는다(시안의 회색 제안가는 싣지 않는다).
  * 대부분의 상품은 두 방식의 가격을 함께 공개한다 — 서면만 받기(self, 본인 이름으로 제출) / 변호사에게 맡기기(atty, 변호사 명의).
  * 접수 가능한(stage: 'pilot') 상품의 가격은 백엔드 catalog.py 와 같아야 한다(tests/test_catalog.py 가 대조).
  * 가격 한 줄은 `{ kind: …, label: …, amount: … }` 형식을 지킬 것 — 테스트가 이 형식으로 읽는다.
@@ -199,6 +200,35 @@ export const SERVICES: Service[] = [
     stage: 'launch',
   },
 
+  // 시안 v6 추가 — 가격 확정 전이라 접수는 열지 않는다(stage: 'launch', price: tbd)
+  {
+    slug: 'provisional-attachment',
+    area: 'civil',
+    name: '부동산 · 채권 가압류',
+    summary: '소송이 끝나기 전에 상대방이 부동산이나 예금·채권을 처분하지 못하도록 묶어 두는 절차입니다.',
+    tag: '보전',
+    price: { kind: 'tbd' },
+    offered: ['self', 'atty'],
+    chips: ['변호사 출석 없음'],
+    includes: ['가압류 신청서·진술서 작성', '변호사 검토', '서면만 받기: 제출 안내서', '변호사에게 맡기기: 제출·보정·담보 제공 대응'],
+    costs: ['인지대', '송달료', '등록면허세·등기신청수수료(부동산)', '담보 제공 비용(보증보험료 또는 공탁금)'],
+    prep: 'money',
+    stage: 'launch',
+  },
+  {
+    slug: 'evidence-preservation',
+    area: 'civil',
+    name: '증거보전 신청',
+    summary: 'CCTV·블랙박스 영상처럼 곧 지워질 수 있는 증거를 소송 전에 법원을 통해 확보합니다.',
+    tag: '증거',
+    price: { kind: 'tbd' },
+    offered: ['self', 'atty'],
+    chips: ['변호사 출석 없음'],
+    costs: ['인지대', '송달료'],
+    prep: 'litigation',
+    stage: 'launch',
+  },
+
   // ── 형사 ─────────────────────────────────────────────────────
   {
     slug: 'complaint',
@@ -311,6 +341,198 @@ export const SERVICES: Service[] = [
     stage: 'pilot',
   },
 
+  // ── 가사(시안 v6 추가 · 가격 확정 전) ───────────────────────
+  {
+    slug: 'inheritance-package',
+    area: 'family',
+    group: '상속',
+    name: '상속포기 · 한정승인',
+    unit: '가족 패키지 · 1인당 정액',
+    summary: '물려받을 빚이 재산보다 많을 때 씁니다. 가족 구성원마다 상속포기와 한정승인을 따로 고르고 한 번에 접수합니다.',
+    tag: '가족 패키지',
+    price: { kind: 'tbd' },
+    offered: ['self', 'atty'],
+    partsTitle: '품목(1인당)',
+    parts: [{ label: '상속포기' }, { label: '한정승인', note: '재산목록 포함' }, { label: '특별한정승인' }],
+    chips: ['신고 기한: 상속 개시를 안 날부터 3개월', '누가 포기하고 누가 한정승인할지 안내'],
+    costs: ['인지대', '송달료', '신문공고료(한정승인)'],
+    prep: 'inheritance',
+    stage: 'launch',
+  },
+  {
+    slug: 'inheritance-division',
+    area: 'family',
+    group: '상속',
+    name: '상속재산분할협의서 · 특별대리인 선임',
+    summary: '상속인 전원의 합의를 등기와 예금 정리에 쓸 수 있는 문서로 만듭니다. 미성년 자녀가 함께 상속인이면 특별대리인 선임부터 진행합니다.',
+    price: { kind: 'tbd' },
+    offered: ['self', 'atty'],
+    partsTitle: '품목',
+    parts: [{ label: '상속재산분할협의서', note: '사건별 맞춤 작성' }, { label: '특별대리인 선임', note: '심판청구서' }],
+    costs: ['인지대', '송달료'],
+    prep: 'inheritance',
+    stage: 'launch',
+  },
+  {
+    slug: 'guardianship',
+    area: 'family',
+    group: '가족',
+    name: '성년 · 한정후견 개시',
+    summary: '치매·발달장애 등으로 스스로 재산을 관리하기 어려운 가족을 위해 법원에 후견인을 정해 달라고 청구합니다.',
+    tag: '출석 포함',
+    price: { kind: 'tbd' },
+    offered: ['self', 'atty'],
+    attendance: '심문기일 출석 1회 포함 · 가족 사이에 다툼이 있는 경우(변호사에게 맡기기)',
+    costs: ['인지대', '송달료', '감정료'],
+    prep: 'guardianship',
+    stage: 'launch',
+  },
+  {
+    slug: 'name-change',
+    area: 'family',
+    group: '가족',
+    name: '개명 신청',
+    unit: '개명허가 신청서',
+    summary: '몇 가지 질문에 답하면 개명허가 신청서와 제출 안내를 받습니다.',
+    tag: '간편 서식',
+    price: { kind: 'tbd' },
+    offered: ['self'],
+    chips: ['성별정정 허가신청은 구성 확정 전'],
+    costs: ['인지대', '송달료'],
+    prep: 'name',
+    stage: 'launch',
+  },
+  {
+    slug: 'divorce-suit',
+    area: 'family',
+    group: '이혼',
+    name: '이혼 소송',
+    unit: '소장 · 변호사에게 맡기기 전용',
+    summary: '협의가 되지 않을 때 소장 작성부터 가사조사 대응, 재산 확보 절차까지 한 상품으로 맡깁니다.',
+    tag: '출석 포함',
+    price: { kind: 'tbd' },
+    offered: ['atty'],
+    partsTitle: '포함 업무',
+    parts: [
+      { label: '소장 작성·제출' },
+      { label: '가사조사 대응' },
+      { label: '사전처분 신청', note: '양육비·접근금지·부양료·면접교섭' },
+      { label: '재산목록 작성, 재산조회 신청' },
+      { label: '가압류·가처분, 증거보전 신청' },
+    ],
+    attendance: '기일 출석 최대 3회 포함 · 3회를 넘는 기일은 1회당 수도권 700,000원 / 비수도권 970,000원',
+    costs: ['인지대', '송달료', '재산조회 비용'],
+    prep: 'divorce',
+    stage: 'launch',
+  },
+  {
+    slug: 'divorce-mediation',
+    area: 'family',
+    group: '이혼',
+    name: '이혼 조정신청',
+    summary: '이혼 조건에 대체로 뜻이 모였을 때 법원 조정으로 이혼과 재산·양육 문제를 함께 정리합니다.',
+    tag: '출석 포함',
+    price: { kind: 'tbd' },
+    offered: ['atty'],
+    attendance: '조정기일 출석 1회 포함',
+    costs: ['인지대', '송달료'],
+    prep: 'divorce',
+    stage: 'launch',
+  },
+  {
+    slug: 'divorce-agreement',
+    area: 'family',
+    group: '이혼',
+    name: '협의이혼 패키지',
+    summary: '이혼에 합의한 부부를 위한 서류 묶음입니다. 재산분할·위자료 합의서는 사정에 맞춰 새로 쓰고, 법원에 낼 서식을 함께 드립니다.',
+    price: { kind: 'tbd' },
+    offered: ['self', 'atty'],
+    partsTitle: '포함 서류',
+    parts: [
+      { label: '재산분할·위자료 합의서', note: '맞춤 작성' },
+      { label: '협의이혼의사확인신청서', note: '서식 제공' },
+      { label: '양육·친권자결정 협의서', note: '서식 제공' },
+    ],
+    chips: ['변호사 출석 없음', '법원 확인기일은 부부가 직접 출석'],
+    prep: 'divorce',
+    stage: 'launch',
+  },
+  {
+    slug: 'paramour-suit',
+    area: 'family',
+    group: '이혼',
+    name: '상간자 소송',
+    unit: '위자료 청구 · 청구하는 쪽과 청구받은 쪽 모두',
+    summary: '배우자의 부정행위 상대방에게 위자료를 청구하는 소송입니다. 소를 제기하는 쪽도, 소장을 받은 쪽도 맡길 수 있습니다.',
+    tag: '출석 포함',
+    price: { kind: 'tbd' },
+    offered: ['atty'],
+    partsTitle: '맡기는 쪽',
+    parts: [
+      { label: '청구하는 쪽(원고)', note: '소장 · 증거보전 신청' },
+      { label: '청구받은 쪽(피고)', note: '답변서·준비서면 · 반성문 · 탄원서' },
+    ],
+    attendance: '변론기일 출석 1회 포함',
+    screeningTitle: '접수 조건',
+    screening: '같은 사건의 상대방이 이미 의뢰한 경우에는 맡을 수 없습니다. 접수 단계에서 상대방 정보를 확인합니다.',
+    costs: ['인지대', '송달료'],
+    prep: 'divorce',
+    stage: 'launch',
+  },
+  {
+    slug: 'child-support-order',
+    area: 'family',
+    group: '이혼',
+    name: '양육비 직접지급명령 신청',
+    summary: '정해진 양육비를 2회 이상 받지 못했을 때, 상대방의 급여에서 양육비를 바로 받도록 법원에 신청합니다.',
+    price: { kind: 'tbd' },
+    offered: ['self', 'atty'],
+    chips: ['변호사 출석 없음'],
+    screeningTitle: '신청 조건',
+    screening: '양육비를 정한 판결·조정조서 등이 있고, 상대방이 회사에서 급여를 받는 경우에 신청할 수 있습니다.',
+    costs: ['인지대', '송달료'],
+    prep: 'divorce',
+    stage: 'launch',
+  },
+
+  // ── 행정(시안 v6 추가 · 가격 확정 전) ───────────────────────
+  {
+    slug: 'license-relief',
+    area: 'admin',
+    name: '운전면허 취소 · 정지 구제',
+    unit: '이의신청 → 행정심판',
+    summary: '면허 취소·정지 처분을 받았을 때 시·도경찰청 이의신청과 행정심판 청구 서면을 준비합니다.',
+    price: { kind: 'tbd' },
+    offered: ['self', 'atty'],
+    partsTitle: '단계',
+    parts: [
+      { label: '이의신청', note: '처분을 받은 날부터 60일 안에' },
+      { label: '행정심판', note: '처분이 있음을 안 날부터 90일 안에 · 이의신청을 거쳤으면 결과를 통보받은 날부터 90일' },
+    ],
+    chips: ['변호사 출석 없음'],
+    prep: 'license',
+    stage: 'launch',
+  },
+  {
+    slug: 'school-violence',
+    area: 'admin',
+    name: '학교폭력 대응',
+    unit: '심의위원회 의견서 → 행정심판',
+    summary: '학교폭력대책심의위원회에 낼 의견서와, 조치 결정에 대한 행정심판 청구 서면을 준비합니다. 가해 학생 측과 피해 학생 측 모두 맡길 수 있습니다.',
+    price: { kind: 'tbd' },
+    offered: ['self', 'atty'],
+    partsTitle: '단계',
+    parts: [
+      { label: '심의위원회 의견서' },
+      { label: '행정심판', note: '처분이 있음을 안 날부터 90일 안에' },
+    ],
+    chips: ['변호사 출석 없음'],
+    screeningTitle: '접수 조건',
+    screening: '같은 사건의 상대방이 이미 의뢰한 경우에는 맡을 수 없습니다. 접수 단계에서 상대방 정보를 확인합니다.',
+    prep: 'school',
+    stage: 'launch',
+  },
+
   // ── 자문 ─────────────────────────────────────────────────────
   {
     slug: 'contract-review',
@@ -371,16 +593,26 @@ export const SERVICES: Service[] = [
   },
 ];
 
+/** 탭 순서 = 키 순서 */
 export const AREA_LABEL: Record<Exclude<Area, 'consult'>, string> = {
   civil: '민사',
   criminal: '형사',
+  family: '가사',
+  admin: '행정',
   advisory: '자문',
 };
 
 export const AREA_NOTE: Record<Exclude<Area, 'consult'>, string> = {
-  civil: '민사는 청구 금액 3,000만 원 이하 소액사건을 중심으로 구성했습니다.',
+  civil: '민사는 청구 금액 3,000만 원 이하 소액사건과 보전·집행 신청으로 구성했습니다.',
   criminal: '고소 상품은 고소사실 1개 기준 가격입니다. 피의사건은 혐의를 인정하는 사건(혐의 1개)만 정찰가로 맡습니다.',
+  family: '가사는 상속·가족·이혼 세 묶음입니다. 출석이 필요한 상품은 정해진 횟수의 기일 출석이 가격에 포함됩니다.',
+  admin: '처분에 대한 이의신청과 행정심판 서면입니다. 불복 기한이 짧으니 처분서를 받은 날짜를 먼저 확인하세요.',
   advisory: '월 고문료 없이 건별로 맡기는 자문입니다.',
+};
+
+/** 영역 안 묶음(group)의 한 줄 설명 */
+export const GROUP_NOTE: Record<string, string> = {
+  상속: '당사자도 변호사도 법원에 출석하지 않습니다',
 };
 
 /** 두 방식의 설명 — 홈·상세 페이지의 방식 비교에 쓴다 */
@@ -431,6 +663,11 @@ export function getService(slug: string) {
 
 export function serviceTitle(s: Service) {
   return s.name;
+}
+
+/** 이 상품이 제공하는 방식 — 가격이 있으면 tracks, 가격 확정 전이면 offered */
+export function waysOf(s: Service): TrackKind[] {
+  return s.tracks?.map((t) => t.kind) ?? s.offered ?? [];
 }
 
 export function trackOf(s: Service, kind: TrackKind | undefined): Track | undefined {
@@ -495,4 +732,10 @@ export const PREP: Record<PrepKey, string[]> = {
   defense: ['출석요구서나 수사기관에서 받은 서류', '반성문·탄원서 등 양형 자료', '피해자와의 합의 여부를 알 수 있는 자료'],
   contract: ['검토받을 계약서 파일(초안 또는 상대방 안)', '계약 상대방과 주고받은 조건 메모', '특히 걱정되는 조항'],
   advisory: ['상황을 알 수 있는 자료(공문·기사·사내 문서)', '지금까지의 경과 메모', '답해야 하는 기한'],
+  inheritance: ['돌아가신 분의 기본증명서·가족관계증명서(상세)', '돌아가신 날짜와 상속 사실을 안 날을 알 수 있는 자료', '알고 있는 재산과 빚 자료(부동산·예금·대출·카드·세금 고지서)', '함께 상속받는 가족의 이름과 연락처'],
+  guardianship: ['후견이 필요한 분의 진단서·장애 관련 서류', '가족관계증명서', '후견이 필요한 분의 재산 목록', '다른 가족의 의견(동의서가 있으면 함께)'],
+  name: ['기본증명서·가족관계증명서', '바꾸려는 이름과 그 이유', '이유를 뒷받침하는 자료(있다면)'],
+  divorce: ['혼인관계증명서·가족관계증명서', '부부 재산 자료(부동산·예금·대출·연금)', '이혼·위자료 사유를 알 수 있는 자료(대화·사진·진단서 등)', '자녀 양육과 양육비에 관한 자료(판결·조서가 있으면 함께)'],
+  license: ['운전면허 취소·정지 처분 통지서', '처분 통지를 받은 날짜', '운전이 생계에 필요하다는 자료(재직증명서·사업자등록증 등)', '사건 경위 메모'],
+  school: ['학교·교육지원청에서 받은 통지서와 결정서', '사건 경위 메모와 관련 대화·사진', '학생의 평소 생활을 보여 주는 자료(생활기록·탄원서 등)'],
 };

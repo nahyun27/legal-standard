@@ -1248,6 +1248,21 @@ a.card:hover .card-more { color: var(--tag); gap: 6px; }
 .card-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
 .card-chips span { font-size: .7rem; font-weight: 600; color: var(--ink-soft); background: var(--mist); border-radius: 999px; padding: 3px 9px; }
 .is-upcoming .card .prow .pr { color: var(--ink-soft); }
+/* 가격 확정 전 상품(시안 v6 신규) — 방식 이름 옆에 금액 대신 표시 */
+.prow .pr.pr-tbd, .is-upcoming .card .prow .pr.pr-tbd { font-size: .78rem; font-weight: 800; color: var(--muted); letter-spacing: 0; }
+/* 한 상품 안의 품목·단계 목록 */
+.parts { margin: 0 0 12px; }
+.parts-title { display: block; font-size: .7rem; font-weight: 800; color: var(--muted); letter-spacing: .04em; margin-bottom: 5px; }
+.parts ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: .78rem; color: var(--ink-soft); }
+.parts li { position: relative; padding-left: 13px; line-height: 1.5; }
+.parts li::before { content: ""; position: absolute; left: 2px; top: .62em; width: 5px; height: 5px; border-radius: 50%; background: var(--tag); }
+.parts li b { font-weight: 700; color: var(--ink); }
+.parts li i { font-style: normal; color: var(--muted); margin-left: 6px; }
+/* 영역 안 묶음 제목(가사: 상속·가족·이혼) */
+.group-h { display: flex; align-items: center; gap: 10px; margin: 38px 0 0; font-size: 1rem; font-weight: 800; }
+.group-h small { font-size: .76rem; font-weight: 600; color: var(--muted); }
+.group-h::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.group-h + .shelf-anim { margin-top: 16px; }
 
 /* 여정 시뮬레이터 방식 스위치 */
 .track-toggle { display: inline-flex; padding: 4px; gap: 4px; background: var(--mist); border: 1px solid var(--line); border-radius: 999px; margin-bottom: 10px; }

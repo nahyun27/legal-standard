@@ -17,5 +17,5 @@ export function priceText(s: Service, key?: string): string {
   }
   const low = lowestAmount(s);
   if (low !== null) return `${won(low)}~`;
-  return s.price?.kind === 'quote' ? '개별 견적' : '가격 확정 예정';
+  return s.price?.kind === 'quote' ? '개별 견적' : '가격 확정 전';
 }

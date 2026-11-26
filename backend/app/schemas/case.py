@@ -37,8 +37,9 @@ class PaymentStartIn(BaseModel):
 
     agree_engagement: bool  # 표준 업무범위·수임 조건
     agree_withdrawal: bool  # 청약철회 제한 고지
+    agree_costs: bool  # 보수에 실비가 포함되지 않음(시안 v6 결제 전 화면)
 
-    @field_validator("agree_engagement", "agree_withdrawal")
+    @field_validator("agree_engagement", "agree_withdrawal", "agree_costs")
     @classmethod
     def _required(cls, v: bool) -> bool:
         if not v:

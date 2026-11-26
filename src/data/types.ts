@@ -1,8 +1,8 @@
 /** 개별 견적·가격 미정 상품의 표기. 정찰가 상품은 tracks·bands·ladder 중 하나로 가격을 둔다. */
 export type Price = { kind: 'quote' } | { kind: 'tbd' };
 
-/** 서비스 영역(시안 v5 탭). consult 는 정해진 상품으로 맡기기 어려운 사건의 개별 상담 — 탭에는 넣지 않는다. */
-export type Area = 'civil' | 'criminal' | 'advisory' | 'consult';
+/** 서비스 영역(시안 v6 탭). consult 는 정해진 상품으로 맡기기 어려운 사건의 개별 상담 — 탭에는 넣지 않는다. */
+export type Area = 'civil' | 'criminal' | 'family' | 'admin' | 'advisory' | 'consult';
 
 /**
  * 진행 방식. self = 변호사가 작성·검토한 서면을 의뢰인 본인 명의로 직접 제출·발송,
@@ -41,7 +41,12 @@ export interface Rung { key: string; label: string; note?: string; amount: numbe
 export interface ScreenQuestion { key: string; question: string; required: string; options: string[] }
 
 /** 상품 상세 "준비하면 좋은 자료" 묶음 */
-export type PrepKey = 'money' | 'lease' | 'litigation' | 'enforcement' | 'settlement' | 'criminal' | 'defense' | 'contract' | 'advisory';
+export type PrepKey =
+  | 'money' | 'lease' | 'litigation' | 'enforcement' | 'settlement' | 'criminal' | 'defense' | 'contract' | 'advisory'
+  | 'inheritance' | 'guardianship' | 'name' | 'divorce' | 'license' | 'school';
+
+/** 한 상품 안의 품목·단계(예: 상속포기/한정승인, 이의신청/행정심판) */
+export interface Part { label: string; note?: string }
 
 /** 오픈 단계. pilot = 지금 접수 가능, launch = 정식 오픈 때 접수 시작. */
 export type Stage = 'pilot' | 'launch' | 'later';
@@ -59,6 +64,17 @@ export interface Service {
   ladder?: Rung[];
   /** tracks·bands·ladder 가 없는 상품의 표기 */
   price?: Price;
+  /** 가격 확정 전(price: tbd) 상품이 제공할 방식 — 카드에 방식 이름과 "가격 확정 전"을 보여 준다 */
+  offered?: TrackKind[];
+  /** 영역 안의 묶음(가사: 상속·가족·이혼) — 진열대에서 묶음 제목 아래 모아 보여 준다 */
+  group?: string;
+  /** 한 상품 안의 품목·단계와 그 묶음 이름(예: "품목", "단계") */
+  parts?: Part[];
+  partsTitle?: string;
+  /** 요금에 포함된 출석 안내 한 줄(예: "기일 출석 최대 3회 포함") */
+  attendance?: string;
+  /** screening 문단의 제목. 없으면 "정찰가로 맡는 조건" */
+  screeningTitle?: string;
   addons?: Addon[];
   /** 정찰가로 맡는 조건(피의사건 등) — 설명 한 줄과 문진 문항 */
   screening?: string;

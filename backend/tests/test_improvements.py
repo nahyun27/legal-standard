@@ -111,11 +111,11 @@ def test_withdraw_cancels_pending_payment(client, db):
 def test_payment_requires_consents_and_records_version(client, db):
     make_user(client, db, "고객")
     c = new_case(client)
-    assert client.post(f"/api/v1/cases/{c['id']}/payment", json={"agree_engagement": True, "agree_withdrawal": False}).status_code == 422
+    assert client.post(f"/api/v1/cases/{c['id']}/payment", json={"agree_engagement": True, "agree_withdrawal": True, "agree_costs": False}).status_code == 422
     assert client.post(f"/api/v1/cases/{c['id']}/payment").status_code == 422
     pay(client, c["id"])
     consents = db.get(Case, c["id"]).consents
-    assert consents["version"] == settings.CONSENT_VERSION and "청약철회" in consents["items"]["agree_withdrawal"]
+    assert consents["version"] == settings.CONSENT_VERSION and "청약철회" in consents["items"]["agree_withdrawal"] and "실비" in consents["items"]["agree_costs"]
     assert client.get("/api/v1/consents/payment").json()["version"] == settings.CONSENT_VERSION
 
 
