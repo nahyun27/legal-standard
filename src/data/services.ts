@@ -56,6 +56,7 @@ export const SERVICES: Service[] = [
   },
   {
     slug: 'lease-registration',
+    deadline: '임차권등기가 등기부에 오른 것을 확인한 뒤에 이사하고 전입을 옮기세요.',
     area: 'civil',
     name: '임차권등기명령',
     summary: '보증금을 돌려받지 못한 채 이사해야 할 때, 대항력과 우선변제권을 지키기 위해 신청합니다.',
@@ -91,6 +92,7 @@ export const SERVICES: Service[] = [
   },
   {
     slug: 'answer-brief',
+    deadline: '지급명령은 받은 날부터 2주 안에 이의신청을, 소장은 받은 날부터 30일 안에 답변서를 내야 합니다.',
     area: 'civil',
     name: '답변서 · 준비서면',
     summary: '소장이나 지급명령을 받았을 때 피고 쪽에서 내는 대응 서면입니다.',
@@ -253,6 +255,7 @@ export const SERVICES: Service[] = [
   },
   {
     slug: 'objection',
+    deadline: '검사의 불기소 처분에 대한 항고는 통지를 받은 날부터 30일 안에 해야 합니다.',
     area: 'criminal',
     name: '불송치 이의신청 · 재정신청',
     summary: '경찰의 불송치 결정이나 검사의 불기소 처분에 불복할 때 내는 서면입니다.',
@@ -294,6 +297,7 @@ export const SERVICES: Service[] = [
   },
   {
     slug: 'restitution',
+    deadline: '배상명령은 1심 또는 2심 변론이 끝나기 전까지 신청해야 합니다.',
     area: 'criminal',
     name: '배상명령 신청',
     summary: '형사재판이 열렸을 때 피고인에게 피해 배상을 함께 청구하는 신청입니다.',
@@ -344,6 +348,7 @@ export const SERVICES: Service[] = [
   // ── 가사(시안 v6 추가 · 가격 확정 전) ───────────────────────
   {
     slug: 'inheritance-package',
+    deadline: '상속이 시작된 것을 안 날부터 3개월 안에 가정법원에 신고해야 합니다.',
     area: 'family',
     group: '상속',
     name: '상속포기 · 한정승인',
@@ -498,6 +503,7 @@ export const SERVICES: Service[] = [
   // ── 행정(시안 v6 추가 · 가격 확정 전) ───────────────────────
   {
     slug: 'license-relief',
+    deadline: '이의신청은 처분을 안 날부터 60일, 행정심판은 처분을 안 날부터 90일(처분이 있었던 날부터 180일) 안에 해야 합니다.',
     area: 'admin',
     name: '운전면허 취소 · 정지 구제',
     unit: '이의신청 → 행정심판',
@@ -515,6 +521,7 @@ export const SERVICES: Service[] = [
   },
   {
     slug: 'school-violence',
+    deadline: '조치 결정에 대한 행정심판은 처분을 안 날부터 90일(처분이 있었던 날부터 180일) 안에 청구해야 합니다.',
     area: 'admin',
     name: '학교폭력 대응',
     unit: '심의위원회 의견서 → 행정심판',

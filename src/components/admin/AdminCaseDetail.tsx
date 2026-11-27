@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Download, FileText, Paperclip, ShieldCheck } from 'lucide-react';
 import { useStaff } from '@/components/admin/AdminShell';
+import DraftPanel from '@/components/admin/DraftPanel';
 import { useReason } from '@/components/admin/ReasonDialog';
 import { ACTION_LABEL, AdminHead, StatusPill } from '@/components/admin/ui';
 import { api, fileUrl, fmtDate, fmtSize, upload, type Charge, type CostLine } from '@/lib/api';
@@ -242,6 +243,8 @@ export default function AdminCaseDetail({ id }: { id: number }) {
             {c.status === 'delivered' && <p>완료 {fmtDate(c.delivered_at, true)} · {c.delivery_note}</p>}
             {c.status === 'rejected' && <p>수임 불성립: {c.reject_reason}</p>}
           </section>
+
+          {!['pending_payment', 'canceled'].includes(c.status) && <DraftPanel caseId={c.id} onChange={load} />}
 
           {(c.retainer || c.addons.length > 0 || c.charges.length > 0) && (
             <section className="admin-card">

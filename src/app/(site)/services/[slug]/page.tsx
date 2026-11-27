@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowRight, Check, ChevronDown, ClipboardList, FileSignature, Minus, Send, UserCheck } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Check, ChevronDown, ClipboardList, FileSignature, Minus, Send, UserCheck } from 'lucide-react';
 import { glossed } from '@/components/Glossed';
 import Reveal from '@/components/Reveal';
 import ServiceOrder from '@/components/ServiceOrder';
@@ -50,6 +50,12 @@ export default async function ServiceDetail({ params }: PageProps<'/services/[sl
 
       <div className="container detail detail-page">
         <div className="detail-main">
+          {s.deadline && (
+            <p className="dx-deadline" role="note" style={{ marginTop: 0, marginBottom: 24 }}>
+              <AlertTriangle size={18} aria-hidden="true" />
+              <span><b>기한을 먼저 확인하세요.</b> {s.deadline} 상담이나 결제만으로 기한이 지켜지지는 않습니다.</span>
+            </p>
+          )}
           {twoWays && (
             <Reveal as="section" className="detail-block">
               <h2 className="block-title">두 가지 방식</h2>
@@ -97,6 +103,7 @@ export default async function ServiceDetail({ params }: PageProps<'/services/[sl
               </div>
             </Reveal>
           )}
+          <p className="note" style={{ marginTop: -8, marginBottom: 24 }}>결과는 사실관계와 증거, 법원·수사기관의 판단에 따라 달라지며, 모두의 변호사는 결과를 약속하지 않습니다.</p>
           {s.costs && (
             <p className="note" style={{ marginTop: -8, marginBottom: 24 }}>
               별도 실비: {glossed(s.costs.join(', '), seen)}. {waysOf(s).length > 1 ? '서면만 받기는 제출할 때 직접 내시고, 변호사에게 맡기기는 결제할 때 함께 받습니다. ' : ''}정확한 금액은 결제 전 총액 화면에서 항목별로 보여 드립니다.
@@ -120,6 +127,7 @@ export default async function ServiceDetail({ params }: PageProps<'/services/[sl
             <h2 className="block-title">준비하면 좋은 자료</h2>
             <ul className="prep-list">{PREP[s.prep].map((t) => <li key={t}>{t}</li>)}</ul>
             <p className="sub" style={{ marginTop: 10 }}>지금 다 없어도 됩니다. 접수한 뒤 내 사건 페이지에서 추가할 수 있습니다.</p>
+            <p className="sub" style={{ marginTop: 6 }}>이 상품이 내 상황에 맞는지 모르겠다면 <Link href="/diagnosis" className="link">내 상황 확인</Link>에서 몇 가지 질문에 답해 보세요.</p>
           </Reveal>
 
           {nexts.length > 0 && (

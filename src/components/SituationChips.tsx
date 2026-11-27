@@ -7,6 +7,7 @@ const SITUATIONS = [
   { label: '사기·명예훼손 고소를 준비 중이에요', href: '/journeys/criminal' },
   { label: '보증금을 돌려받고 싶어요', href: '/journeys/lease' },
   { label: '계약서에 문제없는지 확인하고 싶어요', href: '/services/contract-review' },
+  { label: '어떤 절차인지 잘 모르겠어요', href: '/diagnosis' },
 ];
 
 export default function SituationChips() {

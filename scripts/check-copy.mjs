@@ -24,7 +24,7 @@ const track = process.env.NEXT_PUBLIC_COPY_TRACK === 'A' ? 'A' : 'B';
 
 const ALLOWED = ['직접 작성해 보신', '직접 작성하신', '전문 보기', '담당변호사 직접 수행'];
 
-const pages = ['index', 'process', 'about', 'services', 'journeys'];
+const pages = ['index', 'process', 'about', 'services', 'journeys', 'diagnosis'];
 for (const dir of ['services', 'journeys']) {
   for (const f of readdirSync(join(appDir, dir))) if (f.endsWith('.html')) pages.push(`${dir}/${f.slice(0, -5)}`);
 }
@@ -46,6 +46,15 @@ for (const page of pages) {
     console.error(`✗ /${page === 'index' ? '' : page}: "${w}" — …${text.slice(Math.max(0, i - 30), i + 40)}…`);
     failed++;
   }
+}
+// 브라우저에서 그려지는 광고 문구(내 상황 확인의 질문·결과)는 빌드 HTML 에 없으므로 원본 데이터의 문자열을 검사한다
+for (const src of ['src/data/diagnosis.ts']) {
+  let text = [...readFileSync(join(root, src), 'utf8').matchAll(/'([^'\n]*)'/g)].map((m) => m[1]).join(' ');
+  for (const ok of ALLOWED) text = text.split(ok).join(' ');
+  const hits = banned.filter((w) => text.includes(w));
+  if (track === 'B' && /(^|[^A-Za-z])AI([^A-Za-z]|$)/.test(text)) hits.push('AI (B 트랙 광고 영역)');
+  for (const w of hits) { console.error(`✗ ${src}: "${w}"`); failed++; }
+  pages.push(src);
 }
 if (failed) {
   console.error(`\n광고 금칙어 ${failed}건. 문구를 고치거나, 의미가 다른 표현이면 scripts/check-copy.mjs 의 ALLOWED 에 추가하세요.`);

@@ -47,6 +47,7 @@ export default function ServicesPage() {
         }
       >
         <div style={{ marginTop: 22 }}><TrustSeal /></div>
+        <p className="sub" style={{ marginTop: 14 }}>어떤 상품이 맞는지 모르겠다면 <Link href="/diagnosis" className="link">내 상황 확인</Link>에서 겪은 일부터 골라 보세요.</p>
       </PageHero>
 
       <section className="band" style={{ paddingTop: 48 }}>

@@ -278,7 +278,10 @@ export default function IntakeForm({ service, parentId, initialTrack }: { servic
             <div className="field"><label htmlFor="ph">연락처</label><input id="ph" value={d.phone} onChange={set('phone')} required type="tel" autoComplete="tel" placeholder="010-0000-0000" /></div>
             <div className="field">
               <label htmlFor="op">상대방 성명(상호)</label><input id="op" value={d.opponent} onChange={set('opponent')} />
-              <span className="hint">이해충돌 확인에 사용합니다. 정확할수록 수임 검토가 빨라집니다.</span>
+              <span className="hint">
+                이해충돌 확인에 사용합니다. 정확할수록 수임 검토가 빨라집니다.
+                {service.area === 'criminal' && ' 이름을 모르면 "성명불상"이라고 적고, 다음 단계에서 아이디·전화번호·계좌번호처럼 아는 단서를 적어 주세요.'}
+              </span>
             </div>
           </>
         )}

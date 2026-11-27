@@ -75,6 +75,8 @@ export interface Service {
   attendance?: string;
   /** screening 문단의 제목. 없으면 "정찰가로 맡는 조건" */
   screeningTitle?: string;
+  /** 기한 경고 — 상품 상세 맨 위에 강조한다(법 조문 기준, 변호사 검토 후 확정) */
+  deadline?: string;
   addons?: Addon[];
   /** 정찰가로 맡는 조건(피의사건 등) — 설명 한 줄과 문진 문항 */
   screening?: string;

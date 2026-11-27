@@ -39,6 +39,7 @@ export const ACTION_LABEL: Record<string, string> = {
   'payment.mismatch': '결제 금액 불일치', 'payment.canceled_external': '결제사 취소',
   'case.retainer_sign': '수임약정 서명', 'case.charge': '추가 요금 청구', 'case.charge_cancel': '추가 요금 취소',
   'mfa.enable': '2단계 인증 등록', 'mfa.fail': '2단계 인증 실패', 'mfa.reset': '2단계 인증 초기화', 'conflict_list.replace': '이해충돌 명단 교체',
+  'draft.generate': 'AI 초안 생성', 'draft.save': '초안 직접 수정',
 };
 
 export const USER_STATUS: Record<string, string> = { active: '정상', pending: '가입 미완료', suspended: '이용 정지', withdrawn: '탈퇴' };

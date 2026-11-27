@@ -81,6 +81,19 @@ class Settings(BaseSettings):
     # 국가법령정보센터 Open API 인증값(OC). 없으면 인용 확인은 "확인 불가"로 표시
     LAW_API_OC: str | None = None
 
+    # AI 서면 초안 — 비어 있으면 꺼짐(직원 화면에 "아직 설정되지 않았습니다"로 표시).
+    # bedrock: 법인 AWS 계정의 Bedrock 을 서버 IAM 역할로 부른다(키 없음 — SES 와 같은 방식). fake: 개발·테스트용 고정 문장.
+    # 사건 정보는 학습에 쓰이지 않는 경로로만 보낸다(기획서 X-4). AI 이용은 정액 라이선스 원칙(변호사법 §34).
+    LLM_PROVIDER: Literal["", "bedrock", "fake"] = ""
+    BEDROCK_REGION: str = "ap-northeast-2"
+    # 모델 ID(또는 inference profile ID)는 법인 AWS 콘솔 Bedrock 에서 서울 리전 제공 여부와 함께 확인해서 넣는다(기본값 없음).
+    # 리전 간 inference profile 이면 요청이 국외에서 처리될 수 있다 — 개인정보처리방침 국외 이전 기재 여부를 함께 정할 것.
+    BEDROCK_MODEL_ID: str = ""
+    LLM_MAX_TOKENS: int = 8000
+    # 한 번 생성에 넣는 예시 서면 수와 글자 수 상한(입력 비용·지연 통제)
+    DRAFT_MAX_EXEMPLARS: int = 3
+    DRAFT_EXEMPLAR_CHAR_BUDGET: int = 24_000
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=True, extra="ignore")
 
     @model_validator(mode="after")
@@ -108,6 +121,12 @@ class Settings(BaseSettings):
     @property
     def mail_enabled(self) -> bool:
         return bool(self.SES_REGION or self.SMTP_HOST)
+
+    @property
+    def drafting_enabled(self) -> bool:
+        if self.LLM_PROVIDER == "fake":
+            return True
+        return self.LLM_PROVIDER == "bedrock" and bool(self.BEDROCK_MODEL_ID)
 
     @property
     def mfa_required(self) -> bool:

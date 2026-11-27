@@ -4,6 +4,7 @@ import { COPY_TRACK } from '@/lib/copy';
 import { FIRM, TAGLINE } from '@/lib/site';
 
 const SERVICE_LINKS = [
+  { href: '/diagnosis', label: '내 상황 확인' },
   { href: '/services', label: '서비스·가격' },
   { href: '/journeys', label: '단계별 총비용' },
   { href: '/process', label: '이용 방법' },
